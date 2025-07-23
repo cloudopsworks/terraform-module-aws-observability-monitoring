@@ -22,5 +22,5 @@ resource "awscc_applicationsignals_service_level_objective" "slo" {
   request_based_sli        = try(each.value.request_based_sli, {})
   burn_rate_configurations = try(each.value.burn_rate_configurations, [])
   exclusion_windows        = try(each.value.exclusion_windows, [])
-  tags                     = local.all_tags
+  tags                     = tomap(local.all_tags)
 }
