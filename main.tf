@@ -17,11 +17,11 @@ resource "awscc_applicationsignals_service_level_objective" "slo" {
   }
   name                     = format("%s-%s", each.value.name, local.system_name)
   description              = try(each.value.description, "SLO Setting for ${each.value.name}")
-  sli                      = try(each.value.sli, {})
-  goal                     = try(each.value.goal, {})
-  request_based_sli        = try(each.value.request_based_sli, {})
-  burn_rate_configurations = try(each.value.burn_rate_configurations, [])
-  exclusion_windows        = try(each.value.exclusion_windows, [])
+  sli                      = try(each.value.sli, null)
+  goal                     = try(each.value.goal, null)
+  request_based_sli        = try(each.value.request_based_sli, null)
+  burn_rate_configurations = try(each.value.burn_rate_configurations, null)
+  exclusion_windows        = try(each.value.exclusion_windows, null)
   tags = toset([
     for k, v in local.all_tags : {
       key   = k
