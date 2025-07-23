@@ -13,7 +13,7 @@ locals {
 
 resource "awscc_applicationsignals_service_level_objective" "slo" {
   for_each = {
-    for slo in try(var.settings.service_level_objectives, []) : slo.name => slo if slo.enabled
+    for slo in try(var.settings.service_level_objectives, []) : slo.name => slo if try(slo.enabled, true)
   }
   name                     = format("%s-%s", each.value.name, local.system_name)
   description              = try(each.value.description, "SLO Setting for ${each.value.name}")
