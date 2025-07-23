@@ -8,8 +8,8 @@
 #
 
 variable "settings" {
-    description = "Settings for the monitoring module"
-    type = any
-    default = {}
-  nullable = false
+  description = "Settings for the monitoring module"
+  type        = any
+  default     = {}
+  nullable    = false
 }
