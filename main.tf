@@ -12,7 +12,7 @@ locals {
   slo_operational = flatten([
     for slo in local.slo_in : [
       for operation in slo.service_level_indicator.operations : {
-        name        = format("%s %s", try(slo.name, slo.service_level_indicator.name), replace(operation, "/[\\/\\$\\%\\^]/", "-"))
+        name        = format("%s %s op", try(slo.name, slo.service_level_indicator.name), replace(operation, "/[\\/\\$\\%\\^]/", "-"))
         description = try(slo.description, "SLO Setting for ${try(slo.name, slo.service_level_indicator.name)} - ${operation}")
         sli = {
           comparisson_operator = try(slo.service_level_indicator.comparisson, "LessThan")
