@@ -15,7 +15,7 @@ locals {
         name        = format("%s %s op", try(slo.name, slo.service_level_indicator.name), replace(operation, "/[\\/\\$\\%\\^]/", "-"))
         description = try(slo.description, "SLO Setting for ${try(slo.name, slo.service_level_indicator.name)} - ${operation}")
         sli = {
-          comparisson_operator = try(slo.service_level_indicator.comparisson, "LessThan")
+          comparison_operator = try(slo.service_level_indicator.comparisson, "LessThan")
           metric_threshold     = try(slo.service_level_indicator.threshold, null)
           sli_metric = {
             key_attributes = {
