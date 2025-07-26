@@ -13,15 +13,15 @@ locals {
     for slo in local.slo_in : [
       for operation in slo.service_level_indicator.operations : {
         name        = format("%s %s", try(slo.name, slo.service_level_indicator.name), replace(operation, "/[\\/\\$\\%\\^]/", "-"))
-        description = try(slo.description, "SLO Setting for ${try(slo.name, slo.service_level_indicator.attributes.name)} - ${operation}")
+        description = try(slo.description, "SLO Setting for ${try(slo.name, slo.service_level_indicator.name)} - ${operation}")
         sli = {
           comparisson_operator = try(slo.service_level_indicator.comparisson, "LessThan")
           metric_threshold     = try(slo.service_level_indicator.threshold, null)
           sli_metric = {
             key_attributes = {
               Environment = slo.service_level_indicator.environment
-              Name        = slo.service_level_indicator.attributes.name
-              Type        = slo.service_level_indicator.attributes.type
+              Name        = slo.service_level_indicator.name
+              Type        = slo.service_level_indicator.type
             }
             metric_type    = try(slo.service_level_indicator.metric_type, "LATENCY")
             operation_name = operation
