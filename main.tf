@@ -129,7 +129,6 @@ locals {
             total_request_count_metric = [
               {
                 account_id = try(slo.service_level_indicator.account_id, null)
-                expression = "SUM(METRICS())"
                 id = "totalCount1"
                 metric_stat = {
                   metric = {
@@ -147,7 +146,7 @@ locals {
                     ]
                   }
                   period = try(slo.service_level_indicator.period_seconds, 300)
-                  stat = "Count"
+                  stat = "SampleCount"
                 }
                 return_data = true
               }
