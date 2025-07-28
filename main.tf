@@ -143,7 +143,7 @@ locals {
     ] if try(slo.enabled, true) && slo.type == "golden-signal"
   ])
 
-  slo_all = concat(local.slo_operational, [])
+  slo_all = concat(local.slo_operational, local.slo_golden_signals, [])
 }
 
 resource "awscc_applicationsignals_service_level_objective" "slo" {
