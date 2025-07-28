@@ -42,6 +42,88 @@ locals {
       }
     ] if try(slo.enabled, true) && slo.type == "operational"
   ])
+  # Golden Signals SLOs - (Latency, Traffic, Errors, Saturation)
+  slo_golden_signals = flatten([
+    for slo in local.slo_in : [
+      # Latency signal
+      {
+        name = format("gs-latency-%s", lower(try(slo.name, slo.service_level_indicator.name)))
+        description = try(slo.description, "[Golden Signals] [Latency] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
+        sli = {
+          comparison_operator = try(slo.service_level_indicator.comparisson, "LessThan")
+          metric_threshold     = try(slo.service_level_indicator.threshold, null)
+          sli_metric = {
+            key_attributes = {
+              Environment = slo.service_level_indicator.environment
+              Name        = slo.service_level_indicator.name
+              Type        = slo.service_level_indicator.type
+            }
+            metric_type    = "LATENCY"
+            period_seconds = try(slo.service_level_indicator.period_seconds, 60)
+            statistic      = try(slo.service_level_indicator.statistic, "p99")
+          }
+        }
+        tags = try(slo.tags, {})
+      },
+      # Errors Signal
+      {
+        name = format("gs-errors-%s", lower(try(slo.name, slo.service_level_indicator.name)))
+        description = try(slo.description, "[Golden Signals] [Errors] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
+        request_based_sli = {
+          comparison_operator = try(slo.service_level_indicator.comparisson, "LessThan")
+          metric_threshold = try(slo.service_level_indicator.threshold, null)
+          request_based_sli_metric = {
+            metric_type = "AVAILABILITY"
+            monitored_request_count_metric = {
+              bad_count_metric = {
+                account_id = try(slo.service_level_indicator.account_id, null)
+                expression = "AVG(METRICS())"
+                metric_stat = {
+                  metric = {
+                    namespace = "ApplicationSignals"
+                    metric_name = "Errors"
+                    dimensions =[
+                      {
+                        name = "Environment"
+                        value = slo.service_level_indicator.environment
+                      },
+                      {
+                        name = "Service"
+                        value = slo.service_level_indicator.name
+                      }
+                    ]
+                  }
+                  period = try(slo.service_level_indicator.period_seconds, 60)
+                }
+              }
+            }
+            total_request_count_metric = {
+              account_id = try(slo.service_level_indicator.account_id, null)
+              expression = "SUM(METRICS())"
+              metric_stat = {
+                metric = {
+                  namespace = "ApplicationSignals"
+                  metric_name = "Error"
+                  dimensions =[
+                    {
+                      name = "Environment"
+                      value = slo.service_level_indicator.environment
+                    },
+                    {
+                      name = "Service"
+                      value = slo.service_level_indicator.name
+                    }
+                  ]
+                }
+                period = try(slo.service_level_indicator.period_seconds, 60)
+              }
+            }
+          }
+        }
+        tags = try(slo.tags, {})
+      }
+    ] if try(slo.enabled, true) && slo.type == "golden"
+  ])
 
   slo_all = concat(local.slo_operational, [])
 }
