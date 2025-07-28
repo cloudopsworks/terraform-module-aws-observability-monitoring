@@ -37,6 +37,7 @@ locals {
               duration_unit = try(slo.goal.duration_unit, "DAY")
             }
           }
+          warning_threshold = try(slo.goal.warning_threshold, 80)
         }
         tags = try(slo.tags, {})
       }
@@ -52,16 +53,30 @@ locals {
         sli = {
           comparison_operator = try(slo.service_level_indicator.comparisson, "LessThan")
           metric_threshold    = try(slo.service_level_indicator.threshold, null)
-          sli_metric = {
-            key_attributes = {
-              Environment = slo.service_level_indicator.environment
-              Name        = slo.service_level_indicator.name
-              Type        = slo.service_level_indicator.type
+          metrics_data_queries = [
+            {
+              account_id = try(slo.service_level_indicator.account_id, null)
+              id = "latencyQuery1"
+              metric_stat = {
+                metric = {
+                  namespace   = "ApplicationSignals"
+                  metric_name = "Latency"
+                  dimensions = [
+                    {
+                      name  = "Environment"
+                      value = slo.service_level_indicator.environment
+                    },
+                    {
+                      name  = "Service"
+                      value = slo.service_level_indicator.name
+                    }
+                  ]
+                }
+              }
+              period = try(slo.service_level_indicator.period_seconds, 300)
+              stat = try(slo.service_level_indicator.statistic, "Average")
             }
-            metric_type    = "LATENCY"
-            period_seconds = try(slo.service_level_indicator.period_seconds, 60)
-            statistic      = try(slo.service_level_indicator.statistic, "p99")
-          }
+          ]
         }
         goal = {
           attainment_goal = try(slo.goal.attainment, 99.9)
@@ -71,6 +86,7 @@ locals {
               duration_unit = try(slo.goal.duration_unit, "DAY")
             }
           }
+          warning_threshold = try(slo.goal.warning_threshold, 80)
         }
         tags = try(slo.tags, {})
       },
@@ -79,20 +95,16 @@ locals {
         name        = format("gs-errors-%s", lower(try(slo.name, slo.service_level_indicator.name)))
         description = try(slo.description, "[Golden Signals] [Errors] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
         request_based_sli = {
-          comparison_operator = try(slo.service_level_indicator.comparisson, "LessThan")
-          metric_threshold    = try(slo.service_level_indicator.threshold, null)
           request_based_sli_metric = {
-            metric_type = "AVAILABILITY"
             monitored_request_count_metric = {
               bad_count_metric = [
                 {
                   account_id = try(slo.service_level_indicator.account_id, null)
-                  expression = "AVG(METRICS())"
                   id = "badCount1"
                   metric_stat = {
                     metric = {
                       namespace   = "ApplicationSignals"
-                      metric_name = "Errors"
+                      metric_name = "Error"
                       dimensions = [
                         {
                           name  = "Environment"
@@ -104,9 +116,10 @@ locals {
                         }
                       ]
                     }
-                    period = try(slo.service_level_indicator.period_seconds, 60)
-                    stat = "Errors"
+                    period = try(slo.service_level_indicator.period_seconds, 300)
+                    stat = "Average"
                   }
+                  return_data = true
                 }
               ]
             }
@@ -118,7 +131,7 @@ locals {
                 metric_stat = {
                   metric = {
                     namespace   = "ApplicationSignals"
-                    metric_name = "Error"
+                    metric_name = "Latency"
                     dimensions = [
                       {
                         name  = "Environment"
@@ -131,8 +144,9 @@ locals {
                     ]
                   }
                   period = try(slo.service_level_indicator.period_seconds, 60)
-                  stat = "Errors"
+                  stat = "count"
                 }
+                return_data = true
               }
             ]
           }
