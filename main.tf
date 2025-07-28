@@ -73,9 +73,10 @@ locals {
                       }
                     ]
                   }
+                  period = try(slo.service_level_indicator.period_seconds, 300)
+                  stat = try(slo.service_level_indicator.statistic, "Average")
                 }
-                period = try(slo.service_level_indicator.period_seconds, 300)
-                stat = try(slo.service_level_indicator.statistic, "Average")
+                return_data = true
               }
             ]
           }
