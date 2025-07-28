@@ -16,7 +16,7 @@ locals {
         description = try(slo.description, "SLO Setting for ${try(slo.name, slo.service_level_indicator.name)} - ${operation}")
         sli = {
           comparison_operator = try(slo.service_level_indicator.comparisson, "LessThan")
-          metric_threshold     = try(slo.service_level_indicator.threshold, null)
+          metric_threshold    = try(slo.service_level_indicator.threshold, null)
           sli_metric = {
             key_attributes = {
               Environment = slo.service_level_indicator.environment
@@ -47,11 +47,11 @@ locals {
     for slo in local.slo_in : [
       # Latency signal
       {
-        name = format("gs-latency-%s", lower(try(slo.name, slo.service_level_indicator.name)))
+        name        = format("gs-latency-%s", lower(try(slo.name, slo.service_level_indicator.name)))
         description = try(slo.description, "[Golden Signals] [Latency] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
         sli = {
           comparison_operator = try(slo.service_level_indicator.comparisson, "LessThan")
-          metric_threshold     = try(slo.service_level_indicator.threshold, null)
+          metric_threshold    = try(slo.service_level_indicator.threshold, null)
           sli_metric = {
             key_attributes = {
               Environment = slo.service_level_indicator.environment
@@ -63,15 +63,24 @@ locals {
             statistic      = try(slo.service_level_indicator.statistic, "p99")
           }
         }
+        goal = {
+          attainment_goal = try(slo.goal.attainment, 99.9)
+          interval = {
+            rolling_interval = {
+              duration      = try(slo.goal.duration, 7)
+              duration_unit = try(slo.goal.duration_unit, "DAY")
+            }
+          }
+        }
         tags = try(slo.tags, {})
       },
       # Errors Signal
       {
-        name = format("gs-errors-%s", lower(try(slo.name, slo.service_level_indicator.name)))
+        name        = format("gs-errors-%s", lower(try(slo.name, slo.service_level_indicator.name)))
         description = try(slo.description, "[Golden Signals] [Errors] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
         request_based_sli = {
           comparison_operator = try(slo.service_level_indicator.comparisson, "LessThan")
-          metric_threshold = try(slo.service_level_indicator.threshold, null)
+          metric_threshold    = try(slo.service_level_indicator.threshold, null)
           request_based_sli_metric = {
             metric_type = "AVAILABILITY"
             monitored_request_count_metric = {
@@ -80,15 +89,15 @@ locals {
                 expression = "AVG(METRICS())"
                 metric_stat = {
                   metric = {
-                    namespace = "ApplicationSignals"
+                    namespace   = "ApplicationSignals"
                     metric_name = "Errors"
-                    dimensions =[
+                    dimensions = [
                       {
-                        name = "Environment"
+                        name  = "Environment"
                         value = slo.service_level_indicator.environment
                       },
                       {
-                        name = "Service"
+                        name  = "Service"
                         value = slo.service_level_indicator.name
                       }
                     ]
@@ -102,21 +111,30 @@ locals {
               expression = "SUM(METRICS())"
               metric_stat = {
                 metric = {
-                  namespace = "ApplicationSignals"
+                  namespace   = "ApplicationSignals"
                   metric_name = "Error"
-                  dimensions =[
+                  dimensions = [
                     {
-                      name = "Environment"
+                      name  = "Environment"
                       value = slo.service_level_indicator.environment
                     },
                     {
-                      name = "Service"
+                      name  = "Service"
                       value = slo.service_level_indicator.name
                     }
                   ]
                 }
                 period = try(slo.service_level_indicator.period_seconds, 60)
               }
+            }
+          }
+        }
+        goal = {
+          attainment_goal = try(slo.goal.attainment, 99.9)
+          interval = {
+            rolling_interval = {
+              duration      = try(slo.goal.duration, 7)
+              duration_unit = try(slo.goal.duration_unit, "DAY")
             }
           }
         }
