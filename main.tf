@@ -122,7 +122,7 @@ locals {
         }
         tags = try(slo.tags, {})
       }
-    ] if try(slo.enabled, true) && slo.type == "golden"
+    ] if try(slo.enabled, true) && slo.type == "golden-signal"
   ])
 
   slo_all = concat(local.slo_operational, [])
