@@ -105,7 +105,7 @@ locals {
                       ]
                     }
                     period = try(slo.service_level_indicator.period_seconds, 60)
-                    stat = "Count"
+                    stat = "Errors"
                   }
                 }
               ]
@@ -131,7 +131,7 @@ locals {
                     ]
                   }
                   period = try(slo.service_level_indicator.period_seconds, 60)
-                  stat = "Count"
+                  stat = "Errors"
                 }
               }
             ]
