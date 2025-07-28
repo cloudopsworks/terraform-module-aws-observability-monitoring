@@ -53,30 +53,32 @@ locals {
         sli = {
           comparison_operator = try(slo.service_level_indicator.comparisson, "LessThan")
           metric_threshold    = try(slo.service_level_indicator.threshold, null)
-          metrics_data_queries = [
-            {
-              account_id = try(slo.service_level_indicator.account_id, null)
-              id = "latencyQuery1"
-              metric_stat = {
-                metric = {
-                  namespace   = "ApplicationSignals"
-                  metric_name = "Latency"
-                  dimensions = [
-                    {
-                      name  = "Environment"
-                      value = slo.service_level_indicator.environment
-                    },
-                    {
-                      name  = "Service"
-                      value = slo.service_level_indicator.name
-                    }
-                  ]
+          sli_metric = {
+            metric_data_queries = [
+              {
+                account_id = try(slo.service_level_indicator.account_id, null)
+                id = "latencyQuery1"
+                metric_stat = {
+                  metric = {
+                    namespace   = "ApplicationSignals"
+                    metric_name = "Latency"
+                    dimensions = [
+                      {
+                        name  = "Environment"
+                        value = slo.service_level_indicator.environment
+                      },
+                      {
+                        name  = "Service"
+                        value = slo.service_level_indicator.name
+                      }
+                    ]
+                  }
                 }
+                period = try(slo.service_level_indicator.period_seconds, 300)
+                stat = try(slo.service_level_indicator.statistic, "Average")
               }
-              period = try(slo.service_level_indicator.period_seconds, 300)
-              stat = try(slo.service_level_indicator.statistic, "Average")
-            }
-          ]
+            ]
+          }
         }
         goal = {
           attainment_goal = try(slo.goal.attainment, 99.9)
