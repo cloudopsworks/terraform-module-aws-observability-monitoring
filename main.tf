@@ -84,27 +84,29 @@ locals {
           request_based_sli_metric = {
             metric_type = "AVAILABILITY"
             monitored_request_count_metric = {
-              bad_count_metric = {
-                account_id = try(slo.service_level_indicator.account_id, null)
-                expression = "AVG(METRICS())"
-                metric_stat = {
-                  metric = {
-                    namespace   = "ApplicationSignals"
-                    metric_name = "Errors"
-                    dimensions = [
-                      {
-                        name  = "Environment"
-                        value = slo.service_level_indicator.environment
-                      },
-                      {
-                        name  = "Service"
-                        value = slo.service_level_indicator.name
-                      }
-                    ]
+              bad_count_metric = [
+                {
+                  account_id = try(slo.service_level_indicator.account_id, null)
+                  expression = "AVG(METRICS())"
+                  metric_stat = {
+                    metric = {
+                      namespace   = "ApplicationSignals"
+                      metric_name = "Errors"
+                      dimensions = [
+                        {
+                          name  = "Environment"
+                          value = slo.service_level_indicator.environment
+                        },
+                        {
+                          name  = "Service"
+                          value = slo.service_level_indicator.name
+                        }
+                      ]
+                    }
+                    period = try(slo.service_level_indicator.period_seconds, 60)
                   }
-                  period = try(slo.service_level_indicator.period_seconds, 60)
                 }
-              }
+              ]
             }
             total_request_count_metric = [
               {
