@@ -106,27 +106,29 @@ locals {
                 }
               }
             }
-            total_request_count_metric = {
-              account_id = try(slo.service_level_indicator.account_id, null)
-              expression = "SUM(METRICS())"
-              metric_stat = {
-                metric = {
-                  namespace   = "ApplicationSignals"
-                  metric_name = "Error"
-                  dimensions = [
-                    {
-                      name  = "Environment"
-                      value = slo.service_level_indicator.environment
-                    },
-                    {
-                      name  = "Service"
-                      value = slo.service_level_indicator.name
-                    }
-                  ]
+            total_request_count_metric = [
+              {
+                account_id = try(slo.service_level_indicator.account_id, null)
+                expression = "SUM(METRICS())"
+                metric_stat = {
+                  metric = {
+                    namespace   = "ApplicationSignals"
+                    metric_name = "Error"
+                    dimensions = [
+                      {
+                        name  = "Environment"
+                        value = slo.service_level_indicator.environment
+                      },
+                      {
+                        name  = "Service"
+                        value = slo.service_level_indicator.name
+                      }
+                    ]
+                  }
+                  period = try(slo.service_level_indicator.period_seconds, 60)
                 }
-                period = try(slo.service_level_indicator.period_seconds, 60)
               }
-            }
+            ]
           }
         }
         goal = {
