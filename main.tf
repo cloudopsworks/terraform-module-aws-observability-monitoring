@@ -163,7 +163,54 @@ locals {
           }
         }
         tags = try(slo.tags, {})
-      }
+      },
+      # Traffic Signal
+      {
+        name        = format("gs-traffic-%s", lower(try(slo.name, slo.service_level_indicator.name)))
+        description = try(slo.description, "[Golden Signals] [Traffic] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
+        sli = {
+          comparison_operator = try(slo.service_level_indicator.comparisson, "GreaterThan")
+          metric_threshold    = try(slo.service_level_indicator.traffic_threshold, null)
+          sli_metric = {
+            metric_data_queries = [
+              {
+                account_id = try(slo.service_level_indicator.account_id, null)
+                id = "trafficQuery1"
+                metric_stat = {
+                  metric = {
+                    namespace   = "ApplicationSignals"
+                    metric_name = "Latency"
+                    dimensions = [
+                      {
+                        name  = "Environment"
+                        value = slo.service_level_indicator.environment
+                      },
+                      {
+                        name  = "Service"
+                        value = slo.service_level_indicator.name
+                      }
+                    ]
+                  }
+                  period = try(slo.service_level_indicator.period_seconds, 300)
+                  stat = "SampleCount"
+                }
+                return_data = true
+              }
+            ]
+          }
+        }
+        goal = {
+          attainment_goal = try(slo.goal.attainment, 99.9)
+          interval = {
+            rolling_interval = {
+              duration      = try(slo.goal.duration, 7)
+              duration_unit = try(slo.goal.duration_unit, "DAY")
+            }
+          }
+          warning_threshold = try(slo.goal.warning_threshold, 80)
+        }
+        tags = try(slo.tags, {})
+      },
     ] if try(slo.enabled, true) && slo.type == "golden-signal"
   ])
 
