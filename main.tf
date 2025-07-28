@@ -52,7 +52,7 @@ locals {
         description = try(slo.description, "[Golden Signals] [Latency] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
         sli = {
           comparison_operator = try(slo.service_level_indicator.comparisson, "LessThan")
-          metric_threshold    = try(slo.service_level_indicator.threshold, null)
+          metric_threshold    = slo.service_level_indicator.latency_threshold
           sli_metric = {
             metric_data_queries = [
               {
@@ -146,8 +146,8 @@ locals {
                       }
                     ]
                   }
-                  period = try(slo.service_level_indicator.period_seconds, 60)
-                  stat = "count"
+                  period = try(slo.service_level_indicator.period_seconds, 300)
+                  stat = "Count"
                 }
                 return_data = true
               }
