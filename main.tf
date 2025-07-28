@@ -187,7 +187,7 @@ locals {
         name        = format("gs-traffic-%s", lower(try(slo.name, slo.service_level_indicator.name)))
         description = try(slo.description, "[Golden Signals] [Traffic] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
         sli = {
-          comparison_operator = try(slo.service_level_indicator.comparisson, "LessEqualThan")
+          comparison_operator = try(slo.service_level_indicator.comparisson, "LessThanOrEqualTo")
           metric_threshold    = slo.service_level_indicator.traffic_threshold
           sli_metric = {
             metric_data_queries = [
