@@ -88,6 +88,7 @@ locals {
                 {
                   account_id = try(slo.service_level_indicator.account_id, null)
                   expression = "AVG(METRICS())"
+                  id = "badCount1"
                   metric_stat = {
                     metric = {
                       namespace   = "ApplicationSignals"
@@ -104,6 +105,7 @@ locals {
                       ]
                     }
                     period = try(slo.service_level_indicator.period_seconds, 60)
+                    stat = "Count"
                   }
                 }
               ]
@@ -112,6 +114,7 @@ locals {
               {
                 account_id = try(slo.service_level_indicator.account_id, null)
                 expression = "SUM(METRICS())"
+                id = "totalCount1"
                 metric_stat = {
                   metric = {
                     namespace   = "ApplicationSignals"
@@ -128,6 +131,7 @@ locals {
                     ]
                   }
                   period = try(slo.service_level_indicator.period_seconds, 60)
+                  stat = "Count"
                 }
               }
             ]
