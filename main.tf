@@ -240,6 +240,12 @@ locals {
             metric_data_queries = [
               {
                 account_id = try(slo.service_level_indicator.account_id, null)
+                id         = "saturationPercentage"
+                expression = "100 * (saturationQuery1)"
+                return_data = true
+              },
+              {
+                account_id = try(slo.service_level_indicator.account_id, null)
                 id         = "saturationQuery1"
                 metric_stat = {
                   metric = {
