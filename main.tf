@@ -269,7 +269,7 @@ locals {
                   period = try(slo.service_level_indicator.period_seconds, 300)
                   stat   = "Average"
                 }
-                return_data = true
+                return_data = false
               }
             ]
           }
