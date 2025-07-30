@@ -34,13 +34,13 @@
   default_threshold: 100
   datapoints_to_alarm: 1
   dimensions:
-    Environment: "eks:${cluster_name}/${namespace}"
+    Environment: "eks:${eks.cluster_name}/${eks.namespace}"
     Service: "${service_name}"
   description: |
     Error rate for EKS service requests has been breached.
     * Service: `${service_name}`
-    * Namespace: `${namespace}`
-    * Cluster: `${cluster_name}`
+    * Namespace: `${eks.namespace}`
+    * Cluster: `${eks.cluster_name}`
     * Threshold: `${try(threshold, 100)}` errors per period configured
 - name: err_eks_service_faults
 - name: sat_eks_container_cpu_utilization
