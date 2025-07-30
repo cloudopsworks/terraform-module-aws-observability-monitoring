@@ -8,7 +8,7 @@
 #
 
 locals {
-  slo_in = try(var.settings.service_level_objectives, [])
+  slo_in = try(var.slo_settings.service_level_objectives, [])
   slo_set_env = [
     for slo in local.slo_in : merge(slo,
       length(try(slo.service_level_indicator.eks, {})) > 0 ? {
