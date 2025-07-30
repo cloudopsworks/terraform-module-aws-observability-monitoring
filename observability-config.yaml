@@ -1,0 +1,30 @@
+## Naming convetion
+# - target: <golden_signal>-<target_type>-<metric>
+# Where:
+#   - <golden_signal> is one of:
+#     - lat - Latency
+#     - err - Errors
+#     - sat - Saturation
+#     - trf - Traffic
+- name: lat_eks_service_requests
+  comparison_operator: GreaterThan
+  evaluation_periods: 1
+  metric_name: Latency
+  namespace: ApplicationSignals
+  statistic: Average
+  period: 60
+  default_threshold: 100
+  datapoints_to_alarm: 3
+  dimensions:
+    Environment: "eks:$${cluster_name}/$${namespace}"
+    Service: "$${service_name}"
+- name: err_eks_service_requests
+- name: err_eks_service_faults
+- name: sat_eks_container_cpu_utilization
+- name: sat_eks_container_memory_utilization
+- name: trf_eks_service_requests
+- name: trf_eks_service_requests_per_second
+- name: lat_lambda_service_requests
+- name: err_lambda_service_errors
+- name: sat_lambda_throttled_requests
+- name: trf_lambda_service_requests

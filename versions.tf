@@ -8,7 +8,7 @@
 #
 
 terraform {
-  required_version = ">= 1.3"
+  required_version = ">= 1.7"
   # Complete with required providers for the module
   required_providers {
     aws = {

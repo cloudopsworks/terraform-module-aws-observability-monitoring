@@ -61,3 +61,20 @@ variable "settings" {
   default     = {}
   nullable    = false
 }
+
+variable "monitor_groups" {
+  description = "List of configuration for the monitoring group"
+  type        = any
+  default     = []
+  nullable    = false
+}
+
+variable "alarm_targets" {
+  description = "List of targets for the alarm actions in form type: name, type is one of `sns`, `lambda`, `autoscaling`, `ec2`, `ssm`"
+  type = list(object({
+    type = string
+    name = string
+  }))
+  default  = []
+  nullable = false
+}
