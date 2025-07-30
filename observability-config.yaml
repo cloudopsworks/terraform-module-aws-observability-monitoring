@@ -19,6 +19,17 @@
     Environment: "eks:$${cluster_name}/$${namespace}"
     Service: "$${service_name}"
 - name: err_eks_service_requests
+  comparison_operator: GreaterThan
+  evaluation_periods: 1
+  metric_name: Error
+  namespace: ApplicationSignals
+  statistic: Average
+  period: 60
+  default_threshold: 100
+  datapoints_to_alarm: 3
+  dimensions:
+    Environment: "eks:$${cluster_name}/$${namespace}"
+    Service: "$${service_name}"
 - name: err_eks_service_faults
 - name: sat_eks_container_cpu_utilization
 - name: sat_eks_container_memory_utilization
