@@ -38,9 +38,9 @@ resource "aws_cloudwatch_metric_alarm" "monitor" {
   alarm_name                            = each.value.monitor_name
   alarm_description                     = templatestring(each.value.config.description, each.value.group)
   comparison_operator                   = each.value.config.comparison_operator
-  evaluation_periods                    = each.value.config.evaluation_periods
-  datapoints_to_alarm                   = each.value.config.datapoints_to_alarm
-  period                                = each.value.config.period
+  evaluation_periods                    = try(each.value.group.evaluation_periods, each.value.config.evaluation_periods)
+  datapoints_to_alarm                   = try(each.value.group.datapoints_to_alarm, each.value.config.datapoints_to_alarm)
+  period                                = try(each.value.group.period, each.value.config.period)
   metric_name                           = try(each.value.config.metric_name, null)
   statistic                             = try(each.value.config.statistic, null)
   namespace                             = try(each.value.config.namespace, null)
@@ -70,7 +70,7 @@ resource "aws_cloudwatch_metric_alarm" "monitor" {
         content {
           metric_name = metric_query.value.metric.metric_name
           namespace   = metric_query.value.metric.namespace
-          period      = metric_query.value.metric.period
+          period      = try(each.value.group.period, metric_query.value.metric.period)
           stat        = metric_query.value.metric.statistic
           unit        = try(metric_query.value.metric.unit, null)
           dimensions = length(try(metric_query.value.metric.dimensions, {})) > 0 ? {
