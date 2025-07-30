@@ -16,14 +16,14 @@
   default_threshold: 100
   datapoints_to_alarm: 1
   dimensions:
-    Environment: "eks:$${eks.cluster_name}/$${eks.namespace}"
-    Service: "$${service_name}"
+    Environment: "eks:${eks.cluster_name}/${eks.namespace}"
+    Service: "${service_name}"
   description: |
     Latency threshold for EKS service requests has been breached.
-    * Service: `$${service_name}
-    * Namespace: $${eks.namespace}
-    * Cluster: $${eks.cluster_name}
-    * Threshold: $${try(threshold, 100)} ms
+    * Service: `${service_name}`
+    * Namespace: `${eks.namespace}`
+    * Cluster: `${eks.cluster_name}`
+    * Threshold: `${try(threshold, 100)}` ms
 - name: err_eks_service_requests
   comparison_operator: LessThanThreshold
   evaluation_periods: 1
@@ -34,14 +34,14 @@
   default_threshold: 100
   datapoints_to_alarm: 1
   dimensions:
-    Environment: "eks:$${cluster_name}/$${namespace}"
-    Service: "$${service_name}"
+    Environment: "eks:${cluster_name}/${namespace}"
+    Service: "${service_name}"
   description: |
     Error rate for EKS service requests has been breached.
-    * Service: `$${service_name}`
-    * Namespace: $${namespace}
-    * Cluster: $${cluster_name}
-    * Threshold: $${try(threshold, 100)} errors per period configured
+    * Service: `${service_name}`
+    * Namespace: `${namespace}`
+    * Cluster: `${cluster_name}`
+    * Threshold: `${try(threshold, 100)}` errors per period configured
 - name: err_eks_service_faults
 - name: sat_eks_container_cpu_utilization
 - name: sat_eks_container_memory_utilization
