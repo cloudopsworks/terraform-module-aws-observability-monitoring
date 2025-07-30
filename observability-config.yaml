@@ -7,7 +7,7 @@
 #     - sat - Saturation
 #     - trf - Traffic
 - name: lat_eks_service_requests
-  comparison_operator: LessThanThreshold
+  comparison_operator: GreaterThanOrEqualThreshold
   evaluation_periods: 1
   metric_name: Latency
   namespace: ApplicationSignals
@@ -20,12 +20,12 @@
     Service: "${service_name}"
   description: |
     Latency threshold for EKS service requests has been breached.
-    * Service: `${service_name}`
-    * Namespace: `${eks.namespace}`
-    * Cluster: `${eks.cluster_name}`
-    * Threshold: `${try(threshold, 100)}` ms
+    * Service: __${service_name}__
+    * Namespace: __${eks.namespace}__
+    * Cluster: __${eks.cluster_name}__
+    * Threshold: __${try(threshold, 100)}__ ms
 - name: err_eks_service_requests
-  comparison_operator: LessThanThreshold
+  comparison_operator: GreaterThanOrEqualThreshold
   evaluation_periods: 1
   metric_name: Error
   namespace: ApplicationSignals
@@ -38,10 +38,10 @@
     Service: "${service_name}"
   description: |
     Error rate for EKS service requests has been breached.
-    * Service: `${service_name}`
-    * Namespace: `${eks.namespace}`
-    * Cluster: `${eks.cluster_name}`
-    * Threshold: `${try(threshold, 100)}` errors per period configured
+    * Service: __${service_name}__
+    * Namespace: __${eks.namespace}__
+    * Cluster: __${eks.cluster_name}__
+    * Threshold: __${try(threshold, 100)}__ errors per period configured
 - name: err_eks_service_faults
 - name: sat_eks_container_cpu_utilization
 - name: sat_eks_container_memory_utilization

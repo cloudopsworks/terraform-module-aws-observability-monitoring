@@ -12,13 +12,13 @@ locals {
   config_map = { for conf in local.configs : conf.name => conf }
   groups = [
     for group in var.monitor_groups : {
-      monitor_name = format("[P%s][%s][%s][%s] %s %s",
+      monitor_name = format("[P%s] [%s] [%s] [%s] %s - %s",
         group.priority,
         lower(var.org.organization_unit),
         lower(var.org.environment_name),
-        lower(var.org.environment_type),
-        group.name,
         group.service_name,
+        group.name,
+        lower(var.org.environment_type)
       )
       group  = group
       config = local.config_map[group.target_name]
