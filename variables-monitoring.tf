@@ -8,7 +8,7 @@
 #
 
 ## Settings for the monitoring module - yaml format
-# settings:
+# slo_settings:
 #   service_level_objectives:
 #     - name: "Golden Signal SLO"
 #       description: "Service Level Objective 1"   # (optional)
@@ -55,13 +55,16 @@
 #         duration_unit: DAY | HOUR | WEEK | MONTH | YEAR  # (required) Duration unit for the SLO evaluation
 #       tags:                      # (optional) Tags for the SLO
 #         - tag_key: tag_value
-variable "settings" {
+variable "slo_settings" {
   description = "Settings for the monitoring module"
   type        = any
   default     = {}
   nullable    = false
 }
 
+## Monitoring groups configuration - yaml format
+# monitor_groups:
+#   - name: "EKS Monitoring Group"
 variable "monitor_groups" {
   description = "List of configuration for the monitoring group"
   type        = any
