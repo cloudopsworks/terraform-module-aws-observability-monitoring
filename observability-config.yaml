@@ -14,7 +14,7 @@
   statistic: Average
   period: 60
   default_threshold: 100
-  datapoints_to_alarm: 3
+  datapoints_to_alarm: 1
   dimensions:
     Environment: "eks:$${eks.cluster_name}/$${eks.namespace}"
     Service: "$${service_name}"
@@ -32,7 +32,7 @@
   statistic: Average
   period: 60
   default_threshold: 100
-  datapoints_to_alarm: 3
+  datapoints_to_alarm: 1
   dimensions:
     Environment: "eks:$${cluster_name}/$${namespace}"
     Service: "$${service_name}"
