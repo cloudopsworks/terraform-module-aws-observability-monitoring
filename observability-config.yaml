@@ -7,7 +7,7 @@
 #     - sat - Saturation
 #     - trf - Traffic
 - name: lat_eks_service_requests
-  comparison_operator: GreaterThanOrEqualThreshold
+  comparison_operator: GreaterThanOrEqualToThreshold
   evaluation_periods: 1
   metric_name: Latency
   namespace: ApplicationSignals
@@ -25,7 +25,7 @@
     * Cluster: __${eks.cluster_name}__
     * Threshold: __${try(threshold, 100)}__ ms
 - name: err_eks_service_requests
-  comparison_operator: GreaterThanOrEqualThreshold
+  comparison_operator: GreaterThanOrEqualToThreshold
   evaluation_periods: 1
   metric_name: Error
   namespace: ApplicationSignals
