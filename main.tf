@@ -24,12 +24,12 @@ locals {
       )
       group  = group
       monitor = monitor
-      config = local.config_map[group.target_name]
+      config = local.config_map[monitor.target_name]
     }
   ]
   ])
   groups_map = {
-    for group in local.groups : group.group.target_name => group
+    for group in local.groups : group.monitor_name => group
   }
   sns_actions    = [for item in data.aws_sns_topic.sns : item.arn]
   lambda_actions = [for item in data.aws_lambda_function.lambda : item.arn]
