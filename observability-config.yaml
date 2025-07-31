@@ -157,9 +157,9 @@
   datapoints_to_alarm: 1
   dimensions:
     Environment: "lambda:default"
-    Service: "${service_name}"
+    Service: "${group.service_name}"
   description: |
-    Requests threshold for Lamgda Function has been breached.
+    Requests threshold for Lambda Function has been breached.
     * Lambda Function: __${group.service_name}__
     * Threshold: __${try(metric.threshold, 1000)}__ requests per period configured
 - name: lat_lambda_service_requests
