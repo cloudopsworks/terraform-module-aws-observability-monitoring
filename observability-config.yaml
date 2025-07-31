@@ -111,7 +111,7 @@
     * Percentile: __p99__
     * Lambda Function: __${group.service_name}__
     * Threshold: __${try(monitor.threshold, 100)}__ ms
-- name: err_lambda_service_errors_apm
+- name: err_lambda_service_requests_apm
   comparison_operator: GreaterThanOrEqualToThreshold
   evaluation_periods: 1
   default_threshold: 20
