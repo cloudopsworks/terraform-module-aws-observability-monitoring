@@ -60,7 +60,7 @@
         period: 60
         dimensions:
           Environment: "eks:${group.cluster_name}/${group.namespace}"
-          Service: "${service_name}"
+          Service: "${group.service_name}"
   description: |
     Error rate for EKS service requests has been breached.
     * Service: __${group.service_name}__
