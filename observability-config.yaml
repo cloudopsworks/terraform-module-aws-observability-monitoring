@@ -13,10 +13,12 @@
   datapoints_to_alarm: 1
   metric_query:
     latency_p99_e1:
-      metric_name: Latency
-      namespace: ApplicationSignals
-      statistic: p99
-      period: 60
+      metric:
+        metric_name: Latency
+        namespace: ApplicationSignals
+        statistic: p99
+        period: 60
+        return_data: true
       dimensions:
         Environment: "eks:${eks.cluster_name}/${eks.namespace}"
         Service: "${service_name}"
@@ -35,8 +37,8 @@
   metric_query:
     error_rate_e1:
       expression: "errors_s1 * 100 / volume_s1"
-      return_data: true
       period: 60
+      return_data: true
     errors_s1:
       metric:
         metic_name: Error
