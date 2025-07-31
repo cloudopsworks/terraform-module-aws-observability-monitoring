@@ -81,6 +81,11 @@ resource "aws_cloudwatch_metric_alarm" "monitor" {
       }
     }
   }
+  tags = merge(local.all_tags, {
+    "alarm-priority"       = each.value.group.priority
+    "observability-config" = each.value.config.name
+    "service-name"         = each.value.group.service_name
+  })
 }
 
 data "aws_sns_topic" "sns" {
