@@ -41,7 +41,7 @@
       return_data: true
     errors_s1:
       metric:
-        metic_name: Error
+        metric_name: Error
         namespace: ApplicationSignals
         statistic: Sum
         period: 60
