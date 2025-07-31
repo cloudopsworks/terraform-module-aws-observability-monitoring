@@ -28,7 +28,7 @@
 - name: err_eks_service_requests
   comparison_operator: GreaterThanOrEqualToThreshold
   evaluation_periods: 1
-  default_threshold: 100
+  default_threshold: 20
   datapoints_to_alarm: 1
   metric_query:
     error_rate_e1:
@@ -58,7 +58,7 @@
     * Service: __${service_name}__
     * Namespace: __${eks.namespace}__
     * Cluster: __${eks.cluster_name}__
-    * Threshold: __${try(threshold, 100)}__ errors per period configured
+    * Threshold: __${try(threshold, 20)} %__ of requests
 - name: err_eks_service_faults
 - name: sat_eks_container_cpu_utilization
 - name: sat_eks_container_memory_utilization
