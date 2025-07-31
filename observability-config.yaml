@@ -89,6 +89,79 @@
     * Cluster: __${eks.cluster_name}__
     * Threshold: __${try(threshold, 1000)}__ requests per period configured
 - name: trf_eks_service_requests_per_second
+- name: lat_lambda_service_requests_apm
+  comparison_operator: GreaterThanOrEqualToThreshold
+  evaluation_periods: 1
+  default_threshold: 100
+  datapoints_to_alarm: 1
+  metric_query:
+    latency_p99_e1:
+      label: "Latency p99"
+      return_data: true
+      metric:
+        metric_name: Latency
+        namespace: ApplicationSignals
+        statistic: p99
+        period: 60
+      dimensions:
+        Environment: "lambda:default"
+        Service: "${service_name}"
+  description: |
+    Latency threshold for Lambda Function has been breached.
+    * Percentile: __p99__
+    * Lambda Function: __${service_name}__
+    * Threshold: __${try(threshold, 100)}__ ms
+- name: err_lambda_service_errors_apm
+  comparison_operator: GreaterThanOrEqualToThreshold
+  evaluation_periods: 1
+  default_threshold: 20
+  datapoints_to_alarm: 1
+  metric_query:
+    error_rate_e1:
+      label: "Error rate PCT"
+      expression: "errors_s1 * 100 / volume_s1"
+      period: 60
+      return_data: true
+    errors_s1:
+      label: "Errors Sum"
+      metric:
+        metric_name: Error
+        namespace: ApplicationSignals
+        statistic: Sum
+        period: 60
+        dimensions:
+          Environment: "lambda:default"
+          Service: "${service_name}"
+    volume_s1:
+      label: "Volume Latency Sample Count"
+      metric:
+        metric_name: Latency
+        namespace: ApplicationSignals
+        statistic: SampleCount
+        period: 60
+        dimensions:
+          Environment: "lambda:default"
+          Service: "${service_name}"
+  description: |
+    Error rate for Lambda Function has been breached.
+    * Lambda Function: __${service_name}__
+    * Threshold: __${try(threshold, 20)} %__ of requests
+- name: trf_lambda_service_requests_apm
+  comparison_operator: GreaterThanOrEqualToThreshold
+  evaluation_periods: 1
+  metric_name: Latency
+  namespace: ApplicationSignals
+  statistic: SampleCount
+  period: 60
+  default_threshold: 1000
+  datapoints_to_alarm: 1
+  dimensions:
+    Environment: "lambda:default"
+    Service: "${service_name}"
+  description: |
+    Requests threshold for Lamgda Function has been breached.
+    * Lambda Function: __${service_name}__
+    * Threshold: __${try(threshold, 1000)}__ requests per period configured
 - name: lat_lambda_service_requests
 - name: err_lambda_service_errors
 - name: sat_lambda_throttled_requests
