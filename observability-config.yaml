@@ -9,15 +9,17 @@
 - name: lat_eks_service_requests
   comparison_operator: GreaterThanOrEqualToThreshold
   evaluation_periods: 1
-  metric_name: Latency
-  namespace: ApplicationSignals
-  statistic: p99
-  period: 60
   default_threshold: 100
   datapoints_to_alarm: 1
-  dimensions:
-    Environment: "eks:${eks.cluster_name}/${eks.namespace}"
-    Service: "${service_name}"
+  metric_query:
+    latency_p99_e1:
+      metric_name: Latency
+      namespace: ApplicationSignals
+      statistic: p99
+      period: 60
+      dimensions:
+        Environment: "eks:${eks.cluster_name}/${eks.namespace}"
+        Service: "${service_name}"
   description: |
     Latency threshold for EKS service requests has been breached.
     * Percentile: __p99__
