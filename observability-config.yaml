@@ -29,7 +29,7 @@
     * Service: __${group.service_name}__
     * Namespace: __${group.namespace}__
     * Cluster: __${group.cluster_name}__
-    * Threshold: __${try(metric.threshold, 100)}__ ms
+    * Threshold: __${try(monitor.threshold, 100)}__ ms
 - name: err_eks_service_requests
   comparison_operator: GreaterThanOrEqualToThreshold
   evaluation_periods: 1
@@ -66,7 +66,7 @@
     * Service: __${group.service_name}__
     * Namespace: __${group.namespace}__
     * Cluster: __${group.cluster_name}__
-    * Threshold: __${try(metric.threshold, 20)} %__ of requests
+    * Threshold: __${try(monitor.threshold, 20)} %__ of requests
 - name: err_eks_service_faults
 - name: sat_eks_container_cpu_utilization
 - name: sat_eks_container_memory_utilization
@@ -87,7 +87,7 @@
     * Service: __${group.service_name}__
     * Namespace: __${group.namespace}__
     * Cluster: __${group.cluster_name}__
-    * Threshold: __${try(metric.threshold, 1000)}__ requests per period configured
+    * Threshold: __${try(monitor.threshold, 1000)}__ requests per period configured
 - name: trf_eks_service_requests_per_second
 - name: lat_lambda_service_requests_apm
   comparison_operator: GreaterThanOrEqualToThreshold
@@ -110,7 +110,7 @@
     Latency threshold for Lambda Function has been breached.
     * Percentile: __p99__
     * Lambda Function: __${group.service_name}__
-    * Threshold: __${try(metric.threshold, 100)}__ ms
+    * Threshold: __${try(monitor.threshold, 100)}__ ms
 - name: err_lambda_service_errors_apm
   comparison_operator: GreaterThanOrEqualToThreshold
   evaluation_periods: 1
@@ -145,7 +145,7 @@
   description: |
     Error rate for Lambda Function has been breached.
     * Lambda Function: __${group.service_name}__
-    * Threshold: __${try(metric.threshold, 20)} %__ of requests
+    * Threshold: __${try(monitor.threshold, 20)} %__ of requests
 - name: trf_lambda_service_requests_apm
   comparison_operator: GreaterThanOrEqualToThreshold
   evaluation_periods: 1
@@ -161,7 +161,7 @@
   description: |
     Requests threshold for Lambda Function has been breached.
     * Lambda Function: __${group.service_name}__
-    * Threshold: __${try(metric.threshold, 1000)}__ requests per period configured
+    * Threshold: __${try(monitor.threshold, 1000)}__ requests per period configured
 - name: lat_lambda_service_requests
 - name: err_lambda_service_errors
 - name: sat_lambda_throttled_requests
