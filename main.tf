@@ -40,7 +40,7 @@ resource "aws_cloudwatch_metric_alarm" "monitor" {
   comparison_operator                   = each.value.config.comparison_operator
   evaluation_periods                    = try(each.value.group.evaluation_periods, each.value.config.evaluation_periods)
   datapoints_to_alarm                   = try(each.value.group.datapoints_to_alarm, each.value.config.datapoints_to_alarm)
-  period                                = try(each.value.group.period, each.value.config.period)
+  period                                = length(try(each.value.config.metric_query, {})) == 0 ? try(each.value.group.period, each.value.config.period, null) : null
   metric_name                           = try(each.value.config.metric_name, null)
   statistic                             = try(each.value.config.statistic, null)
   namespace                             = try(each.value.config.namespace, null)
@@ -64,7 +64,7 @@ resource "aws_cloudwatch_metric_alarm" "monitor" {
       expression  = try(metric_query.value.expression, null)
       label       = try(metric_query.value.label, null)
       return_data = try(metric_query.value.return_data, null)
-      period      = try(metric_query.value.period, null)
+      period      = length(try(metric_query.value.metric, {})) == 0 ? try(each.value.group.period, metric_query.value.period, null) : null
       dynamic "metric" {
         for_each = length(try(metric_query.value.metric, {})) > 0 ? [1] : []
         content {
