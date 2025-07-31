@@ -18,7 +18,7 @@
         namespace: ApplicationSignals
         statistic: p99
         period: 60
-        return_data: true
+        #return_data: true
       dimensions:
         Environment: "eks:${eks.cluster_name}/${eks.namespace}"
         Service: "${service_name}"
