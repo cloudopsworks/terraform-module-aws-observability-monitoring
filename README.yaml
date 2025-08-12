@@ -26,7 +26,7 @@ introduction: |-
 
 # How to use this project
 usage: |-
-  The module requires the following variables:
+  #### The module requires the following variables:
 
   ```hcl
   module "monitoring" {
@@ -62,7 +62,7 @@ usage: |-
   }
   ```
 
-  Observability Configuration Settings:
+  #### Observability Configuration Settings:
   | Name | Short Description |
   |------|------------------|
   | lat_eks_service_requests_apm | Monitors EKS service request latency using Application Signals |
