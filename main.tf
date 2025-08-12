@@ -53,7 +53,7 @@ resource "aws_cloudwatch_metric_alarm" "monitor" {
   unit                                  = try(each.value.config.unit, null)
   treat_missing_data                    = try(each.value.config.treat_missing_data, "missing")
   evaluate_low_sample_count_percentiles = try(each.value.config.evaluate_low_sample, null)
-  actions_enabled                       = true
+  actions_enabled                       = (length(local.alarm_actions) + length(local.ok_actions)) > 0
   alarm_actions                         = local.alarm_actions
   ok_actions                            = local.ok_actions
   dimensions = length(try(each.value.config.dimensions, {})) > 0 ? {
