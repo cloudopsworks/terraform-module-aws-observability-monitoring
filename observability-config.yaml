@@ -112,6 +112,7 @@
   metric_name: pod_cpu_utilization_over_pod_limit
   namespace: ContainerInsights
   statistic: Average
+  period: 60
   dimensions:
     ClusterName: "${group.cluster_name}"
     Namespace: "${group.namespace}"
@@ -130,6 +131,7 @@
   metric_name: pod_memory_utilization_over_pod_limit
   namespace: ContainerInsights
   statistic: Average
+  period: 60
   dimensions:
     ClusterName: "${group.cluster_name}"
     Namespace: "${group.namespace}"
