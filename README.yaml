@@ -1,4 +1,4 @@
-name: Terraform Transit Gateway Module
+name: Terraform AWS Observability Monitoring Module
 #logo: logo/logo.jpg
 
 license: "APACHE2"
@@ -8,23 +8,171 @@ copyrights:
     url: "https://cloudops.works"
     year: "2024"
 
-github_repo: cloudopsworks/terraform-module-aws-vpc-setup
+github_repo: cloudopsworks/terraform-module-aws-observability-monitoring
 
 description: |-
-  VPC Module for setting up transit gateway with ResourceAccessMananger support.
+  AWS CloudWatch Monitoring Module for setting up standardized observability monitoring across AWS services. This module enables automated creation of CloudWatch alarms based on predefined configurations and supports multiple notification targets through SNS and Lambda functions.
 
 # Introduction to the project
-#introduction: |-
-#  This is an introduction.
+introduction: |-
+  This Terraform module provides a standardized approach to implement AWS CloudWatch monitoring across your infrastructure. It supports:
+
+  - Configurable monitoring groups and targets
+  - Template-based alarm descriptions and dimensions
+  - Multiple notification channels (SNS and Lambda)
+  - Priority-based alarm naming
+  - Environment-aware configurations
+  - Metric queries and composite alarms
 
 # How to use this project
-#usage: |-
+usage: |-
+  The module requires the following variables:
+
+  ```hcl
+  module "monitoring" {
+    source = "cloudopsworks/observability-monitoring/aws"
+
+    org = {
+      organization_unit  = "MyOrg"
+      environment_name  = "Production"
+      environment_type  = "prod"
+    }
+
+    monitor_groups = [
+      {
+        service_name = "WebApp"
+        type        = "API"
+        monitors    = [
+          {
+            name        = "High CPU Usage"
+            priority    = "1"
+            target_name = "cpu_utilization"
+            threshold   = 80
+          }
+        ]
+      }
+    ]
+
+    alarm_targets = [
+      {
+        name = "alerts-topic"
+        type = "sns"
+      }
+    ]
+  }
+  ```
+
+  Observability Configuration Settings:
+  | Name | Short Description |
+  |------|------------------|
+  | lat_eks_service_requests_apm | Monitors EKS service request latency using Application Signals |
+  | err_eks_service_requests_apm | Tracks HTTP 4xx error rates for EKS services |
+  | err_eks_service_faults_apm | Monitors HTTP 5xx fault rates for EKS services |
+  | sat_eks_container_cpu_utilization | Tracks EKS container CPU utilization against pod limits |
+  | sat_eks_container_memory_utilization | Monitors EKS container memory utilization against pod limits |
+  | trf_eks_service_requests_apm | Measures EKS service request volume using Application Signals |
+  | lat_lambda_service_requests_apm | Monitors Lambda function latency using Application Signals |
+  | err_lambda_service_requests_apm | Tracks Lambda function error rates using Application Signals |
+  | trf_lambda_service_requests_apm | Measures Lambda function request volume using Application Signals |
+  | lat_lambda_service_requests | Monitors Lambda function duration using CloudWatch metrics |
+  | err_lambda_service_errors | Tracks Lambda function error counts |
+  | sat_lambda_throttled_requests | Monitors Lambda function throttling events |
+  | trf_lambda_service_requests | Measures Lambda function invocation counts |
+  | lat_apigateway_service_requests | Monitors API Gateway request latency |
+  | err_apigateway_service_errors | Tracks API Gateway HTTP 4xx error rates |
+  | err_apigateway_service_faults | Monitors API Gateway HTTP 5xx fault rates |
+  | trf_apigateway_service_requests | Measures API Gateway request volume |
 
 # Example usage
-#examples: |-
+examples: |-
+  ### Basic Monitoring Setup
+  ```hcl
+  include "root" {
+    path = find_in_parent_folders()
+  }
+
+  terraform {
+    source = "git::https://github.com/cloudopsworks/terraform-aws-observability-monitoring.git?ref=v1.0.0"
+  }
+
+  inputs = {
+    org = {
+      organization_unit = "MyCompany"
+      environment_name = "Development"
+      environment_type = "dev"
+    }
+
+    monitor_groups = [
+      {
+        service_name = "API"
+        type        = "REST"
+        monitors    = [
+          {
+            name        = "Response Time"
+            priority    = "2"
+            target_name = "api_latency"
+            threshold   = 1000
+          }
+        ]
+      }
+    ]
+
+    alarm_targets = [
+      {
+        name = "monitoring-alerts"
+        type = "sns"
+      }
+    ]
+  }
+  ```
 
 # How to get started quickly
-#quickstart: |-
+quickstart: |-
+  1. Add the module to your Terraform configuration:
+     ```hcl
+     module "monitoring" {
+       source = "cloudopsworks/observability-monitoring/aws"
+       version = "1.0.0"
+     }
+     ```
+
+  2. Configure basic organization settings:
+     ```hcl
+     org = {
+       organization_unit = "MyOrg"
+       environment_name = "Dev"
+       environment_type = "development"
+     }
+     ```
+
+  3. Define at least one monitoring group:
+     ```hcl
+     monitor_groups = [
+       {
+         service_name = "MainApp"
+         type        = "Web"
+         monitors    = [
+           {
+             name        = "Health Check"
+             priority    = "1"
+             target_name = "availability"
+           }
+         ]
+       }
+     ]
+     ```
+
+  4. Add notification target:
+     ```hcl
+     alarm_targets = [
+       {
+         name = "alerts"
+         type = "sns"
+       }
+     ]
+     ```
+
+  5. Run terraform init and apply to create the monitoring resources.
 
 include:
   - "docs/targets.md"
