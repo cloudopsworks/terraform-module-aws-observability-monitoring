@@ -237,7 +237,7 @@
   evaluation_periods: 1
   metric_name: Duration
   namespace: AWS/Lambda
-  statistic: "${try(group.statistic, group.percentile, "p99")}"
+  statistic: p99
   period: 60
   default_threshold: 100
   datapoints_to_alarm: 1
@@ -245,7 +245,7 @@
     FunctionName: "${group.service_name}"
   description: |
     Latency threshold for Lambda Function has been breached.
-    * Statistic/Percentile: __${try(group.statistic, group.percentile, "p99")}__
+    * Percentile: __p99__
     * Lambda Function: __${group.service_name}__
     * Threshold: __${try(monitor.threshold, 100)}__ ms
 - name: err_lambda_service_errors
