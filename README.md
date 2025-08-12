@@ -66,7 +66,7 @@ This Terraform module provides a standardized approach to implement AWS CloudWat
 Instead pin to the release tag (e.g. `?ref=vX.Y.Z`) of one of our [latest releases](https://github.com/cloudopsworks/terraform-module-aws-observability-monitoring/releases).
 
 
-The module requires the following variables:
+#### The module requires the following variables:
 
 ```hcl
 module "monitoring" {
@@ -102,7 +102,7 @@ module "monitoring" {
 }
 ```
 
-Observability Configuration Settings:
+#### Observability Configuration Settings:
 | Name | Short Description |
 |------|------------------|
 | lat_eks_service_requests_apm | Monitors EKS service request latency using Application Signals |
