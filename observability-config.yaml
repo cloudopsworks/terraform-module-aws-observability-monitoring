@@ -13,19 +13,19 @@
   datapoints_to_alarm: 1
   metric_query:
     latency_e1:
-      label: 'Latency ${try(group.percentile, "p99")}'
+      label: "Latency query"
       return_data: true
       metric:
         metric_name: Latency
         namespace: ApplicationSignals
-        statistic: '${try(group.percentile, "p99")}'
+        statistic: p99
         period: 60
       dimensions:
         Environment: "eks:${group.cluster_name}/${group.namespace}"
         Service: "${group.service_name}"
   description: |
     Latency threshold for EKS service requests has been breached.
-    * Percentile: __${try(group.percentile, "p99")}__
+    * Percentile: __p99__
     * Service: __${group.service_name}__
     * Namespace: __${group.namespace}__
     * Cluster: __${group.cluster_name}__
@@ -166,19 +166,19 @@
   datapoints_to_alarm: 1
   metric_query:
     latency_e1:
-      label: 'Latency ${try(group.percentile, "p99")}'
+      label: "Latency p99"
       return_data: true
       metric:
         metric_name: Latency
         namespace: ApplicationSignals
-        statistic: '${try(group.percentile, "p99")}'
+        statistic: p99
         period: 60
       dimensions:
         Environment: "lambda:default"
-        Service: '${group.service_name}'
+        Service: "${group.service_name}"
   description: |
     Latency threshold for Lambda Function has been breached.
-    * Percentile: __${try(group.percentile, "p99")}__
+    * Percentile: __p99__
     * Lambda Function: __${group.service_name}__
     * Threshold: __${try(monitor.threshold, 100)}__ ms
 - name: err_lambda_service_requests_apm
@@ -237,12 +237,12 @@
   evaluation_periods: 1
   metric_name: Duration
   namespace: AWS/Lambda
-  statistic: '${try(group.statistic, group.percentile, "p99")}'
+  statistic: "${try(group.statistic, group.percentile, "p99")}"
   period: 60
   default_threshold: 100
   datapoints_to_alarm: 1
   dimensions:
-    FunctionName: '${group.service_name}'
+    FunctionName: "${group.service_name}"
   description: |
     Latency threshold for Lambda Function has been breached.
     * Statistic/Percentile: __${try(group.statistic, group.percentile, "p99")}__
@@ -258,7 +258,7 @@
   default_threshold: 20
   datapoints_to_alarm: 1
   dimensions:
-    FunctionName: '${group.service_name}'
+    FunctionName: "${group.service_name}"
   description: |
     Error rate for Lambda Function has been breached.
     * Lambda Function: __${group.service_name}__
@@ -273,7 +273,7 @@
   default_threshold: 10
   datapoints_to_alarm: 1
   dimensions:
-    FunctionName: '${group.service_name}'
+    FunctionName: "${group.service_name}"
   description: |
     Throttled requests threshold for Lambda Function has been breached.
     * Lambda Function: __${group.service_name}__
@@ -288,7 +288,7 @@
   default_threshold: 1000
   datapoints_to_alarm: 1
   dimensions:
-    FunctionName: '${group.service_name}'
+    FunctionName: "${group.service_name}"
   description: |
     Requests threshold for Lambda Function has been breached.
     * Lambda Function: __${group.service_name}__
@@ -298,16 +298,16 @@
   evaluation_periods: 1
   metric_name: Latency
   namespace: AWS/ApiGateway
-  statistic: '${try(group.percentile, "p99")}'
+  statistic: p99
   period: 60
   default_threshold: 100
   datapoints_to_alarm: 1
   dimensions:
-    ApiName: '${group.service_name}'
-    Stage: '${group.stage}'
+    ApiName: "${group.service_name}"
+    Stage: "${group.stage}"
   description: |
     Latency threshold for API Gateway has been breached.
-    * Percentile: __${try(group.percentile, "p99")}__
+    * Percentile: __p99__
     * API Gateway: __${group.service_name}__
     * Stage: __${group.stage}__
     * Threshold: __${try(monitor.threshold, 100)}__ ms
@@ -321,8 +321,8 @@
   default_threshold: 20
   datapoints_to_alarm: 1
   dimensions:
-    ApiName: '${group.service_name}'
-    Stage: '${group.stage}'
+    ApiName: "${group.service_name}"
+    Stage: "${group.stage}"
   description: |
     Error rate (HTTP 4xx) for API Gateway has been breached.
     * API Gateway: __${group.service_name}__
@@ -338,8 +338,8 @@
   default_threshold: 20
   datapoints_to_alarm: 1
   dimensions:
-    ApiName: '${group.service_name}'
-    Stage: '${group.stage}'
+    ApiName: "${group.service_name}"
+    Stage: "${group.stage}"
   description: |
     Fault rate (HTTP 5xx) for API Gateway has been breached.
     * API Gateway: __${group.service_name}__
@@ -355,8 +355,8 @@
   default_threshold: 1000
   datapoints_to_alarm: 1
   dimensions:
-    ApiName: '${group.service_name}'
-    Stage: '${group.stage}'
+    ApiName: "${group.service_name}"
+    Stage: "${group.stage}"
   description: |
     Requests threshold for API Gateway has been breached.
     * API Gateway: __${group.service_name}__
