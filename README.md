@@ -15,7 +15,18 @@
 
 
 
-AWS CloudWatch Monitoring Module for setting up standardized observability monitoring across AWS services. This module enables automated creation of CloudWatch alarms based on predefined configurations and supports multiple notification targets through SNS and Lambda functions.
+AWS CloudWatch Monitoring Module for setting up standardized observability monitoring across AWS services. This module provides a comprehensive solution for implementing consistent monitoring practices across your infrastructure. Key features include:
+
+- Automated creation of CloudWatch alarms based on predefined configurations
+- Support for multiple notification targets through SNS topics and Lambda functions
+- Configurable monitoring groups and targets
+- Template-based alarm descriptions and dimensions
+- Priority-based alarm naming
+- Environment-aware configurations
+- Metric queries and composite alarms
+- Integration with Terragrunt for infrastructure provisioning
+
+The module is designed to work across various AWS services, providing a unified approach to observability that can be customized to fit your specific requirements.
 
 
 ---
@@ -50,14 +61,19 @@ We have [*lots of terraform modules*][terraform_modules] that are Open Source an
 
 ## Introduction
 
-This Terraform module provides a standardized approach to implement AWS CloudWatch monitoring across your infrastructure. It supports:
+This Terraform module provides a comprehensive solution for implementing standardized AWS CloudWatch monitoring across your infrastructure. It is designed to simplify the process of setting up observability for your AWS resources, ensuring consistency and reducing maintenance overhead.
 
-- Configurable monitoring groups and targets
-- Template-based alarm descriptions and dimensions
-- Multiple notification channels (SNS and Lambda)
-- Priority-based alarm naming
-- Environment-aware configurations
-- Metric queries and composite alarms
+The module offers the following key capabilities:
+
+- **Configurable Monitoring Groups**: Organize your monitoring setup by service, application, or any other logical grouping.
+- **Template-Based Alarms**: Define reusable alarm templates with configurable parameters for dimensions, thresholds, and evaluation periods.
+- **Multiple Notification Channels**: Configure alarms to trigger notifications through SNS topics or invoke Lambda functions for custom processing.
+- **Priority-Based Naming**: Implement a naming convention that includes priority levels to help organize and filter alarms based on their importance.
+- **Environment Awareness**: Configure monitoring settings that adapt to different environments (development, staging, production) with appropriate sensitivity levels.
+- **Metric Queries and Composite Alarms**: Create complex monitoring rules using metric queries and combine multiple metrics into composite alarms.
+- **Terragrunt Integration**: Designed to work seamlessly with Terragrunt for infrastructure provisioning, allowing you to manage your monitoring setup as part of your broader IaC strategy.
+
+This module is particularly useful for organizations looking to implement a standardized observability framework across their AWS environments, ensuring consistent monitoring practices and reducing the operational overhead of maintaining custom monitoring solutions.
 
 ## Usage
 
@@ -125,6 +141,136 @@ module "monitoring" {
 
 ## Quick Start
 
+### Quick Start Guide
+
+This section provides step-by-step instructions for setting up the AWS CloudWatch Monitoring Module in your environment.
+
+#### Prerequisites
+
+- Terraform installed (version 0.14 or later)
+- AWS CLI configured with appropriate permissions
+- Basic understanding of CloudWatch alarms and Terraform
+
+#### Step 1: Initialize Your Project
+
+Create a new directory for your monitoring configuration and initialize it:
+
+```bash
+mkdir aws-monitoring && cd aws-monitoring
+terraform init
+```
+
+#### Step 2: Create Configuration Files
+
+Create a `main.tf` file with the following content:
+
+```hcl
+module "cloudwatch_monitoring" {
+  source = "git::https://github.com/cloudopsworks/terraform-aws-observability-monitoring.git?ref=v1.0.0"
+
+  org = {
+    organization_unit = "MyCompany"
+    environment_name  = "Production"
+    environment_type  = "prod"
+  }
+
+  monitor_groups = [
+    {
+      service_name = "WebApp"
+      type        = "REST"
+      monitors    = [
+        {
+          name        = "High Latency"
+          priority    = "1"
+          target_name = "api_latency"
+          threshold   = 500
+        },
+        {
+          name        = "Error Rate"
+          priority    = "1"
+          target_name = "api_error_rate"
+          threshold   = 5
+        }
+      ]
+    },
+    {
+      service_name = "Database"
+      type        = "RDS"
+      monitors    = [
+        {
+          name        = "CPU Utilization"
+          priority    = "2"
+          target_name = "db_cpu_utilization"
+        },
+        {
+          name        = "Free Storage"
+          priority    = "1"
+          target_name = "db_free_storage"
+        }
+      ]
+    }
+  ]
+
+  alarm_targets = [
+    {
+      name = "production-alerts"
+      type = "sns"
+    }
+  ]
+}
+```
+
+#### Step 3: Configure Notification Targets
+
+Create an SNS topic for your alarms:
+
+```bash
+aws sns create-topic --name production-alerts
+```
+
+Note the ARN returned by this command and update your configuration:
+
+```hcl
+alarm_targets = [
+  {
+    name = "production-alerts"
+    type = "sns"
+    arn  = "arn:aws:sns:us-east-1:123456789012:production-alerts"
+  }
+]
+```
+
+#### Step 4: Plan and Apply
+
+Review your configuration:
+
+```bash
+terraform plan
+```
+
+If everything looks correct, apply the configuration:
+
+```bash
+terraform apply
+```
+
+#### Step 5: Verify Your Alarms
+
+After the configuration is applied, verify your alarms in the AWS CloudWatch console:
+
+```bash
+aws cloudwatch describe-alarms --alarm-name-prefix "WebApp High Latency"
+```
+
+#### Step 6: Customize Your Monitoring
+
+Refer to the [Examples](#examples) section for more complex monitoring scenarios and customize your configuration as needed.
+
+#### Troubleshooting
+
+- If you encounter permission issues, ensure your AWS credentials have the necessary permissions to create CloudWatch alarms and SNS topics.
+- For any errors in the Terraform configuration, check the error messages and refer to the module's documentation for guidance.
+- If alarms aren't triggering as expected, verify that your thresholds and evaluation periods are appropriate for your workload.
 1. Add the module to your Terraform configuration:
    ```hcl
    module "monitoring" {
@@ -175,6 +321,9 @@ module "monitoring" {
 ## Examples
 
 ### Basic Monitoring Setup
+
+This example demonstrates a simple monitoring configuration for an API service:
+
 ```hcl
 include "root" {
   path = find_in_parent_folders()
@@ -212,6 +361,179 @@ inputs = {
       type = "sns"
     }
   ]
+}
+```
+
+### Monitoring for Lambda Functions
+
+This example shows how to set up monitoring for AWS Lambda functions:
+
+```hcl
+include "root" {
+  path = find_in_parent_folders()
+}
+
+terraform {
+  source = "git::https://github.com/cloudopsworks/terraform-aws-observability-monitoring.git?ref=v1.0.0"
+}
+
+inputs = {
+  org = {
+    organization_unit = "MyCompany"
+    environment_name = "Production"
+    environment_type = "prod"
+  }
+
+  monitor_groups = [
+    {
+      service_name = "PaymentProcessor"
+      type        = "Lambda"
+      monitors    = [
+        {
+          name        = "Invocation Errors"
+          priority    = "1"
+          target_name = "err_lambda_service_errors"
+        },
+        {
+          name        = "Duration"
+          priority    = "2"
+          target_name = "lat_lambda_service_requests"
+        },
+        {
+          name        = "Throttles"
+          priority    = "3"
+          target_name = "sat_lambda_throttled_requests"
+        }
+      ]
+    }
+  ]
+
+  alarm_targets = [
+    {
+      name = "critical-alerts"
+      type = "sns"
+    },
+    {
+      name = "lambda-monitoring"
+      type = "lambda"
+    }
+  ]
+}
+```
+
+### Terragrunt Integration Example
+
+This example demonstrates how to use this module with Terragrunt:
+
+```hcl
+include {
+  path = find_in_parent_folders()
+}
+
+terraform {
+  source = "git::https://github.com/cloudopsworks/terraform-aws-observability-monitoring.git?ref=v1.0.0"
+}
+
+inputs = {
+  org = {
+    organization_unit = "MyCompany"
+    environment_name = "Staging"
+    environment_type = "staging"
+  }
+
+  monitor_groups = [
+    {
+      service_name = "UserService"
+      type        = "REST"
+      monitors    = [
+        {
+          name        = "High Latency"
+          priority    = "1"
+          target_name = "api_latency"
+          threshold   = 500
+        },
+        {
+          name        = "Error Rate"
+          priority    = "1"
+          target_name = "api_error_rate"
+          threshold   = 5
+        }
+      ]
+    },
+    {
+      service_name = "Database"
+      type        = "RDS"
+      monitors    = [
+        {
+          name        = "CPU Utilization"
+          priority    = "2"
+          target_name = "db_cpu_utilization"
+        },
+        {
+          name        = "Free Storage"
+          priority    = "1"
+          target_name = "db_free_storage"
+        }
+      ]
+    }
+  ]
+
+  alarm_targets = [
+    {
+      name = "staging-alerts"
+      type = "sns"
+    }
+  ]
+}
+
+dependency "vpc" {
+  config_path = "../vpc"
+}
+```
+
+### Multi-Region Monitoring Setup
+
+This example shows how to configure monitoring across multiple AWS regions:
+
+```hcl
+include "root" {
+  path = find_in_parent_folders()
+}
+
+terraform {
+  source = "git::https://github.com/cloudopsworks/terraform-aws-observability-monitoring.git?ref=v1.0.0"
+}
+
+inputs = {
+  org = {
+    organization_unit = "GlobalApp"
+    environment_name = "Production"
+    environment_type = "prod"
+  }
+
+  monitor_groups = [
+    {
+      service_name = "GlobalService"
+      type        = "REST"
+      monitors    = [
+        {
+          name        = "Global Latency"
+          priority    = "1"
+          target_name = "api_latency"
+          threshold   = 300
+        }
+      ]
+    }
+  ]
+
+  alarm_targets = [
+    {
+      name = "global-alerts"
+      type = "sns"
+    }
+  ]
+
+  regions = ["us-east-1", "eu-west-1", "ap-southeast-1"]
 }
 ```
 
