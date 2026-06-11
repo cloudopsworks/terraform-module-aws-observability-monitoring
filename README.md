@@ -12,21 +12,26 @@
 
 # Terraform AWS Observability Monitoring Module
 
+ [![Latest Release](https://img.shields.io/github/release/cloudopsworks/terraform-module-aws-observability-monitoring.svg?style=for-the-badge)](https://github.com/cloudopsworks/terraform-module-aws-observability-monitoring/releases/latest) [![Last Updated](https://img.shields.io/github/last-commit/cloudopsworks/terraform-module-aws-observability-monitoring.svg?style=for-the-badge)](https://github.com/cloudopsworks/terraform-module-aws-observability-monitoring/commits)
 
 
+AWS observability monitoring module for SRE/DevOps Golden Signals on CloudWatch.
+The module creates CloudWatch alarms, AWS Application Signals SLOs, and generated
+CloudWatch dashboards from either the legacy `monitor_groups`/`slos` shape or the
+typed v2 `services` model.
 
-AWS CloudWatch Monitoring Module for setting up standardized observability monitoring across AWS services. This module provides a comprehensive solution for implementing consistent monitoring practices across your infrastructure. Key features include:
+Key capabilities:
 
-- Automated creation of CloudWatch alarms based on predefined configurations
-- Support for multiple notification targets through SNS topics and Lambda functions
-- Configurable monitoring groups and targets
-- Template-based alarm descriptions and dimensions
-- Priority-based alarm naming
-- Environment-aware configurations
-- Metric queries and composite alarms
-- Integration with Terragrunt for infrastructure provisioning
-
-The module is designed to work across various AWS services, providing a unified approach to observability that can be customized to fit your specific requirements.
+- Golden Signals support for latency, traffic, errors/faults, saturation, and health.
+- Backward-compatible legacy monitor groups and SLO inputs, including Terragrunt
+  `slos` to Terraform `slo_settings` wiring.
+- Typed v2 services for EKS services, Lambda functions, Elastic Beanstalk
+  environments, and custom CloudWatch resources.
+- Built-in and extensible monitor preset catalog through `monitor_definitions`.
+- Generated per-service and fleet CloudWatch dashboards based on configured monitors,
+  alarms, and SLO inventory.
+- Optional SNS and Lambda alarm actions through existing AWS targets.
+- Safe no-notification mode with `alarm_targets: []` or `alarm_targets: null`.
 
 
 ---
@@ -56,19 +61,30 @@ We have [*lots of terraform modules*][terraform_modules] that are Open Source an
 
 ## Introduction
 
-This Terraform module provides a comprehensive solution for implementing standardized AWS CloudWatch monitoring across your infrastructure. It is designed to simplify the process of setting up observability for your AWS resources, ensuring consistency and reducing maintenance overhead.
+This module standardizes AWS operational telemetry around SRE Golden Signals. It is
+designed for platform teams that need consistent observability definitions across many
+workloads while preserving existing Terragrunt deployments.
 
-The module offers the following key capabilities:
+The legacy model remains supported:
 
-- **Configurable Monitoring Groups**: Organize your monitoring setup by service, application, or any other logical grouping.
-- **Template-Based Alarms**: Define reusable alarm templates with configurable parameters for dimensions, thresholds, and evaluation periods.
-- **Multiple Notification Channels**: Configure alarms to trigger notifications through SNS topics or invoke Lambda functions for custom processing.
-- **Priority-Based Naming**: Implement a naming convention that includes priority levels to help organize and filter alarms based on their importance.
-- **Environment Awareness**: Configure monitoring settings that adapt to different environments (development, staging, production) with appropriate sensitivity levels.
-- **Metric Queries and Composite Alarms**: Create complex monitoring rules using metric queries and combine multiple metrics into composite alarms.
-- **Terragrunt Integration**: Designed to work seamlessly with Terragrunt for infrastructure provisioning, allowing you to manage your monitoring setup as part of your broader IaC strategy.
+- `monitor_groups` creates CloudWatch alarms from named presets in
+  `observability-config.yaml`.
+- `slos` in `inputs.yaml` continues to map to Terraform `slo_settings` through the
+  Terragrunt scaffold template.
+- `alarm_targets: []` disables alarm actions without breaking data source lookups.
 
-This module is particularly useful for organizations looking to implement a standardized observability framework across their AWS environments, ensuring consistent monitoring practices and reducing the operational overhead of maintaining custom monitoring solutions.
+The v2 model adds a typed service inventory:
+
+- `services.<key>.resource_type = eks_service` for EKS + Application Signals.
+- `services.<key>.resource_type = lambda_function` for Lambda CloudWatch and
+  Application Signals metrics.
+- `services.<key>.resource_type = elasticbeanstalk_environment` for Elastic Beanstalk
+  enhanced-health metrics and request-based SLOs.
+- `services.<key>.monitors` configures alarms/dashboard widgets from built-in or
+  custom presets.
+- `services.<key>.slos` configures service-scoped Golden Signal, operational,
+  metric-query, or request-based SLOs.
+- `dashboard_settings` controls generated fleet and per-service dashboards.
 
 ## Usage
 
@@ -77,459 +93,408 @@ This module is particularly useful for organizations looking to implement a stan
 Instead pin to the release tag (e.g. `?ref=vX.Y.Z`) of one of our [latest releases](https://github.com/cloudopsworks/terraform-module-aws-observability-monitoring/releases).
 
 
-#### The module requires the following variables:
+## Terragrunt scaffold workflow
+
+Bootstrap a deployment with Terragrunt's scaffold command. Scaffold writes files into
+the current directory, so create and enter the target directory first.
+
+```sh
+# 1. Create and enter the target deployment directory
+mkdir -p production/useast1/nexus/catalog-svc
+cd production/useast1/nexus/catalog-svc
+
+# 2. Scaffold the module (do NOT use --working-dir)
+terragrunt scaffold github.com/cloudopsworks/terraform-module-aws-observability-monitoring
+
+# 3. Edit inputs.yaml with deployment-specific values
+#    (all keys and comments are pre-populated from .boilerplate/inputs.yaml)
+vi inputs.yaml
+
+# 4. Apply
+terragrunt apply
+```
+
+## Generated `inputs.yaml` shape
+
+Scaffold copies `.boilerplate/inputs.yaml`. The following excerpt shows the important
+module-specific keys and comment style operators will see:
+
+```yaml
+alarm_targets: [] # (Optional) Alarm action targets. Default: []; set null or [] to disable actions.
+# alarm_targets:
+#   - type: sns # (Required) Target type. Valid values: sns, lambda.
+#     name: sre-critical-alerts # (Required) Existing SNS topic name or Lambda function name.
+
+monitor_groups: [] # (Optional) Legacy monitor groups. Default: []; preserved for existing deployments.
+# monitor_groups:
+#   - service_name: checkout-helm # (Required) Service/resource name used in alarm names and dimensions.
+#     type: eks # (Required) Legacy resource type. Valid values: eks, lambda, apigateway, elasticbeanstalk, custom.
+#     cluster_name: eks-prod-use1 # (Required for eks) EKS cluster name.
+#     namespace: checkout-prod # (Required for eks) Kubernetes namespace.
+#     monitors:
+#       - name: REQUEST LATENCY # (Required) Alarm label.
+#         target_name: lat_eks_service_requests_apm # (Required) Built-in or custom monitor preset key.
+#         priority: 2 # (Required) Alarm priority used in generated names.
+#         threshold: 100 # (Optional) Override preset threshold.
+
+slo_settings: {} # (Optional) Legacy SLO settings. Default: {}; equivalent Terragrunt legacy key: slos.
+# slos: {} # (Optional) Backward-compatible Terragrunt alias for slo_settings.
+
+services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and dashboards. Default: {}.
+
+monitor_definitions: {} # (Optional) Custom monitor presets keyed by preset name. Default: {}.
+
+resource_profiles: {} # (Optional) Custom resource profile definitions. Default: {}.
+
+dashboard_settings: {} # (Optional) CloudWatch dashboard generation settings. Default: enabled.
+```
+
+## Generated `terragrunt.hcl` shape
+
+The scaffolded Terragrunt file loads `inputs.yaml` into `local.local_vars` and maps
+each module variable. The SLO mapping intentionally supports both the new
+`slo_settings` key and the current legacy `slos` key.
 
 ```hcl
-module "monitoring" {
-  source = "cloudopsworks/observability-monitoring/aws"
+locals {
+  local_vars  = yamldecode(file("./inputs.yaml"))
+  spoke_vars  = yamldecode(file(find_in_parent_folders("spoke-inputs.yaml")))
+  region_vars = yamldecode(file(find_in_parent_folders("region-inputs.yaml")))
+  env_vars    = yamldecode(file(find_in_parent_folders("env-inputs.yaml")))
+  global_vars = yamldecode(file(find_in_parent_folders("global-inputs.yaml")))
 
-  org = {
-    organization_unit  = "MyOrg"
-    environment_name  = "Production"
-    environment_type  = "prod"
-  }
+  local_tags  = jsondecode(file("./local-tags.json"))
+  spoke_tags  = jsondecode(file(find_in_parent_folders("spoke-tags.json")))
+  region_tags = jsondecode(file(find_in_parent_folders("region-tags.json")))
+  env_tags    = jsondecode(file(find_in_parent_folders("env-tags.json")))
+  global_tags = jsondecode(file(find_in_parent_folders("global-tags.json")))
 
-  monitor_groups = [
-    {
-      service_name = "WebApp"
-      type        = "API"
-      monitors    = [
-        {
-          name        = "High CPU Usage"
-          priority    = "1"
-          target_name = "cpu_utilization"
-          threshold   = 80
-        }
-      ]
-    }
-  ]
+  tags = merge(
+    local.global_tags,
+    local.env_tags,
+    local.region_tags,
+    local.spoke_tags,
+    local.local_tags
+  )
+}
 
-  alarm_targets = [
-    {
-      name = "alerts-topic"
-      type = "sns"
-    }
-  ]
+include "root" {
+  path = find_in_parent_folders("root.hcl")
+}
+
+terraform {
+  source = "git::https://github.com/cloudopsworks/terraform-module-aws-observability-monitoring.git//?ref=<release>"
+}
+
+inputs = {
+  org            = local.env_vars.org
+  is_hub         = false
+  spoke_def      = local.spoke_vars.spoke_def
+  alarm_targets  = try(local.local_vars.alarm_targets, [])
+  monitor_groups = try(local.local_vars.monitor_groups, [])
+  slo_settings   = try(local.local_vars.slo_settings, try(local.local_vars.slos, {}))
+  services       = try(local.local_vars.services, {})
+  monitor_definitions = try(local.local_vars.monitor_definitions, {})
+  resource_profiles   = try(local.local_vars.resource_profiles, {})
+  dashboard_settings  = try(local.local_vars.dashboard_settings, {})
+  extra_tags     = local.tags
 }
 ```
 
-#### Observability Configuration Settings:
-| Name | Short Description |
-|------|------------------|
-| lat_eks_service_requests_apm | Monitors EKS service request latency using Application Signals |
-| err_eks_service_requests_apm | Tracks HTTP 4xx error rates for EKS services |
-| err_eks_service_faults_apm | Monitors HTTP 5xx fault rates for EKS services |
-| sat_eks_container_cpu_utilization | Tracks EKS container CPU utilization against pod limits |
-| sat_eks_container_memory_utilization | Monitors EKS container memory utilization against pod limits |
-| trf_eks_service_requests_apm | Measures EKS service request volume using Application Signals |
-| lat_lambda_service_requests_apm | Monitors Lambda function latency using Application Signals |
-| err_lambda_service_requests_apm | Tracks Lambda function error rates using Application Signals |
-| trf_lambda_service_requests_apm | Measures Lambda function request volume using Application Signals |
-| lat_lambda_service_requests | Monitors Lambda function duration using CloudWatch metrics |
-| err_lambda_service_errors | Tracks Lambda function error counts |
-| sat_lambda_throttled_requests | Monitors Lambda function throttling events |
-| trf_lambda_service_requests | Measures Lambda function invocation counts |
-| lat_apigateway_service_requests | Monitors API Gateway request latency |
-| err_apigateway_service_errors | Tracks API Gateway HTTP 4xx error rates |
-| err_apigateway_service_faults | Monitors API Gateway HTTP 5xx fault rates |
-| trf_apigateway_service_requests | Measures API Gateway request volume |
+## Built-in monitor presets
+
+| Preset | Resource | Golden Signal / Purpose |
+|---|---|---|
+| `lat_eks_service_requests_apm` | EKS + Application Signals | Latency |
+| `err_eks_service_requests_apm` | EKS + Application Signals | Errors |
+| `err_eks_service_faults_apm` | EKS + Application Signals | Faults |
+| `trf_eks_service_requests_apm` | EKS + Application Signals | Traffic |
+| `sat_eks_container_cpu_utilization` | EKS Container Insights | CPU saturation |
+| `sat_eks_container_memory_utilization` | EKS Container Insights | Memory saturation |
+| `lat_lambda_service_requests_apm` | Lambda + Application Signals | Latency |
+| `err_lambda_service_requests_apm` | Lambda + Application Signals | Errors |
+| `trf_lambda_service_requests_apm` | Lambda + Application Signals | Traffic |
+| `lat_lambda_service_requests` | Lambda CloudWatch metrics | Duration |
+| `err_lambda_service_errors` | Lambda CloudWatch metrics | Error count |
+| `sat_lambda_throttled_requests` | Lambda CloudWatch metrics | Throttles |
+| `sat_lambda_concurrent_executions` | Lambda CloudWatch metrics | Concurrent execution saturation |
+| `trf_lambda_service_requests` | Lambda CloudWatch metrics | Invocations |
+| `lat_apigateway_service_requests` | API Gateway | Latency |
+| `err_apigateway_service_errors` | API Gateway | HTTP 4xx |
+| `err_apigateway_service_faults` | API Gateway | HTTP 5xx |
+| `trf_apigateway_service_requests` | API Gateway | Request count |
+| `eb_environment_health` | Elastic Beanstalk | Enhanced health |
+| `eb_latency_p99` | Elastic Beanstalk | p99 latency |
+| `eb_5xx_count` | Elastic Beanstalk | HTTP 5xx |
+| `eb_4xx_count` | Elastic Beanstalk | HTTP 4xx |
+| `eb_requests_total` | Elastic Beanstalk | Traffic widget/request-count source |
+| `eb_instances_severe` | Elastic Beanstalk | Instance health |
 
 ## Quick Start
 
-### Quick Start Guide
+1. Create a deployment directory and scaffold the module:
 
-This section provides step-by-step instructions for setting up the AWS CloudWatch Monitoring Module in your environment.
-
-#### Prerequisites
-
-- Terraform installed (version 0.14 or later)
-- AWS CLI configured with appropriate permissions
-- Basic understanding of CloudWatch alarms and Terraform
-
-#### Step 1: Initialize Your Project
-
-Create a new directory for your monitoring configuration and initialize it:
-
-```bash
-mkdir aws-monitoring && cd aws-monitoring
-terraform init
-```
-
-#### Step 2: Create Configuration Files
-
-Create a `main.tf` file with the following content:
-
-```hcl
-module "cloudwatch_monitoring" {
-  source = "git::https://github.com/cloudopsworks/terraform-aws-observability-monitoring.git?ref=v1.0.0"
-
-  org = {
-    organization_unit = "MyCompany"
-    environment_name  = "Production"
-    environment_type  = "prod"
-  }
-
-  monitor_groups = [
-    {
-      service_name = "WebApp"
-      type        = "REST"
-      monitors    = [
-        {
-          name        = "High Latency"
-          priority    = "1"
-          target_name = "api_latency"
-          threshold   = 500
-        },
-        {
-          name        = "Error Rate"
-          priority    = "1"
-          target_name = "api_error_rate"
-          threshold   = 5
-        }
-      ]
-    },
-    {
-      service_name = "Database"
-      type        = "RDS"
-      monitors    = [
-        {
-          name        = "CPU Utilization"
-          priority    = "2"
-          target_name = "db_cpu_utilization"
-        },
-        {
-          name        = "Free Storage"
-          priority    = "1"
-          target_name = "db_free_storage"
-        }
-      ]
-    }
-  ]
-
-  alarm_targets = [
-    {
-      name = "production-alerts"
-      type = "sns"
-    }
-  ]
-}
-```
-
-#### Step 3: Configure Notification Targets
-
-Create an SNS topic for your alarms:
-
-```bash
-aws sns create-topic --name production-alerts
-```
-
-Note the ARN returned by this command and update your configuration:
-
-```hcl
-alarm_targets = [
-  {
-    name = "production-alerts"
-    type = "sns"
-    arn  = "arn:aws:sns:us-east-1:123456789012:production-alerts"
-  }
-]
-```
-
-#### Step 4: Plan and Apply
-
-Review your configuration:
-
-```bash
-terraform plan
-```
-
-If everything looks correct, apply the configuration:
-
-```bash
-terraform apply
-```
-
-#### Step 5: Verify Your Alarms
-
-After the configuration is applied, verify your alarms in the AWS CloudWatch console:
-
-```bash
-aws cloudwatch describe-alarms --alarm-name-prefix "WebApp High Latency"
-```
-
-#### Step 6: Customize Your Monitoring
-
-Refer to the [Examples](#examples) section for more complex monitoring scenarios and customize your configuration as needed.
-
-#### Troubleshooting
-
-- If you encounter permission issues, ensure your AWS credentials have the necessary permissions to create CloudWatch alarms and SNS topics.
-- For any errors in the Terraform configuration, check the error messages and refer to the module's documentation for guidance.
-- If alarms aren't triggering as expected, verify that your thresholds and evaluation periods are appropriate for your workload.
-1. Add the module to your Terraform configuration:
-   ```hcl
-   module "monitoring" {
-     source = "cloudopsworks/observability-monitoring/aws"
-     version = "1.0.0"
-   }
+   ```sh
+   mkdir -p production/useast1/nexus/catalog-svc
+   cd production/useast1/nexus/catalog-svc
+   terragrunt scaffold github.com/cloudopsworks/terraform-module-aws-observability-monitoring
    ```
 
-2. Configure basic organization settings:
-   ```hcl
-   org = {
-     organization_unit = "MyOrg"
-     environment_name = "Dev"
-     environment_type = "development"
-   }
+2. Edit `inputs.yaml` using either the legacy `monitor_groups`/`slos` shape or the
+   v2 `services` shape.
+
+3. Configure existing notification targets if alarms should notify operators:
+
+   ```yaml
+   alarm_targets:
+     - type: sns
+       name: sre-critical-alerts
    ```
 
-3. Define at least one monitoring group:
-   ```hcl
-   monitor_groups = [
-     {
-       service_name = "MainApp"
-       type        = "Web"
-       monitors    = [
-         {
-           name        = "Health Check"
-           priority    = "1"
-           target_name = "availability"
-         }
-       ]
-     }
-   ]
+   Use `alarm_targets: []` to create alarms without actions.
+
+4. Apply with Terragrunt:
+
+   ```sh
+   terragrunt plan
+   terragrunt apply
    ```
 
-4. Add notification target:
-   ```hcl
-   alarm_targets = [
-     {
-       name = "alerts"
-       type = "sns"
-     }
-   ]
-   ```
+5. Verify generated resources:
 
-5. Run terraform init and apply to create the monitoring resources.
+   ```sh
+   aws cloudwatch describe-alarms --alarm-name-prefix "[P"
+   aws cloudwatch list-dashboards --dashboard-name-prefix "observability"
+   ```
 
 
 ## Examples
 
-### Basic Monitoring Setup
+## Backward-compatible EKS/Lambda configuration
 
-This example demonstrates a simple monitoring configuration for an API service:
+Existing deployments can keep the current shape. This is compatible with live
+Terragrunt inputs where `slos` is mapped to Terraform `slo_settings`.
 
-```hcl
-include "root" {
-  path = find_in_parent_folders()
-}
+```yaml
+alarm_targets: []
 
-terraform {
-  source = "git::https://github.com/cloudopsworks/terraform-aws-observability-monitoring.git?ref=v1.0.0"
-}
+monitor_groups:
+  - service_name: checkout-helm
+    type: eks
+    cluster_name: eks-nexus-main-prod-003-usea1
+    namespace: checkout-prod
+    monitors:
+      - name: REQUEST LATENCY
+        target_name: lat_eks_service_requests_apm
+        priority: 2
+        threshold: 80
+      - name: REQUEST ERROR RATE
+        target_name: err_eks_service_requests_apm
+        priority: 1
+        threshold: 10
+      - name: CPU USAGE
+        target_name: sat_eks_container_cpu_utilization
+        priority: 3
+        threshold: 85
 
-inputs = {
-  org = {
-    organization_unit = "MyCompany"
-    environment_name = "Development"
-    environment_type = "dev"
-  }
+  - service_name: auth-lambda-prod
+    type: lambda
+    monitors:
+      - name: REQUEST LATENCY
+        target_name: lat_lambda_service_requests_apm
+        priority: 2
+        threshold: 10000
+      - name: REQUEST COUNT
+        target_name: trf_lambda_service_requests_apm
+        priority: 3
+        threshold: 200
 
-  monitor_groups = [
-    {
-      service_name = "API"
-      type        = "REST"
-      monitors    = [
-        {
-          name        = "Response Time"
-          priority    = "2"
-          target_name = "api_latency"
-          threshold   = 1000
-        }
-      ]
-    }
-  ]
-
-  alarm_targets = [
-    {
-      name = "monitoring-alerts"
-      type = "sns"
-    }
-  ]
-}
+slos:
+  service_level_objectives:
+    - name: checkout
+      type: golden-signal
+      service_level_indicator:
+        eks:
+          cluster_name: eks-nexus-main-prod-003-usea1
+          namespace: checkout-prod
+          name: checkout-helm
+        latency_threshold: 100
+        errors_threshold: 5
+        saturation_threshold: 85
+        saturation_metric: CPU
+        traffic_threshold: 1000
+        period_seconds: 300
+      goal:
+        attainment: 99.9
+        duration: 5
+        duration_unit: DAY
 ```
 
-### Monitoring for Lambda Functions
+## v2 EKS service with dashboards and Golden Signals SLOs
 
-This example shows how to set up monitoring for AWS Lambda functions:
+```yaml
+alarm_targets:
+  - type: sns
+    name: sre-critical-alerts
 
-```hcl
-include "root" {
-  path = find_in_parent_folders()
-}
+services:
+  checkout:
+    enabled: true
+    display_name: Checkout API
+    resource_type: eks_service
+    resource:
+      eks:
+        cluster_name: eks-nexus-main-prod-003-usea1
+        namespace: checkout-prod
+        service_name: checkout-helm
+      app_signals:
+        environment: eks:eks-nexus-main-prod-003-usea1/checkout-prod
+        service: checkout-helm
+    monitors:
+      latency:
+        preset: lat_eks_service_requests_apm
+        name: REQUEST LATENCY
+        priority: 2
+        threshold: 100
+      error_rate:
+        preset: err_eks_service_requests_apm
+        name: REQUEST ERROR RATE
+        priority: 1
+        threshold: 5
+      traffic:
+        preset: trf_eks_service_requests_apm
+        name: REQUEST COUNT
+        priority: 3
+        threshold: 1000
+      cpu:
+        preset: sat_eks_container_cpu_utilization
+        name: CPU USAGE
+        priority: 3
+        threshold: 85
+    slos:
+      golden:
+        type: golden-signal
+        latency_threshold: 300
+        errors_threshold: 5
+        traffic_threshold: 1000
+        saturation_threshold: 85
+        saturation_metric: CPU
+        goal:
+          attainment: 99.9
+          duration: 7
+          duration_unit: DAY
+    dashboard:
+      enabled: true
+      custom_widgets:
+        - id: runbook
+          type: text
+          markdown: "Runbook: https://runbooks.example.com/checkout"
 
-terraform {
-  source = "git::https://github.com/cloudopsworks/terraform-aws-observability-monitoring.git?ref=v1.0.0"
-}
-
-inputs = {
-  org = {
-    organization_unit = "MyCompany"
-    environment_name = "Production"
-    environment_type = "prod"
-  }
-
-  monitor_groups = [
-    {
-      service_name = "PaymentProcessor"
-      type        = "Lambda"
-      monitors    = [
-        {
-          name        = "Invocation Errors"
-          priority    = "1"
-          target_name = "err_lambda_service_errors"
-        },
-        {
-          name        = "Duration"
-          priority    = "2"
-          target_name = "lat_lambda_service_requests"
-        },
-        {
-          name        = "Throttles"
-          priority    = "3"
-          target_name = "sat_lambda_throttled_requests"
-        }
-      ]
-    }
-  ]
-
-  alarm_targets = [
-    {
-      name = "critical-alerts"
-      type = "sns"
-    },
-    {
-      name = "lambda-monitoring"
-      type = "lambda"
-    }
-  ]
-}
+dashboard_settings:
+  enabled: true
+  create_fleet: true
+  create_per_service: true
+  include_slo_only: true
+  widgets_per_row: 2
 ```
 
-### Terragrunt Integration Example
+## v2 Elastic Beanstalk environment
 
-This example demonstrates how to use this module with Terragrunt:
+Elastic Beanstalk metrics other than `EnvironmentHealth` require enhanced health and
+the metrics must be published by the environment. Keep request-based SLOs explicit so
+`ApplicationRequests5xx` and `ApplicationRequestsTotal` are visible operational
+dependencies.
 
-```hcl
-include {
-  path = find_in_parent_folders()
-}
-
-terraform {
-  source = "git::https://github.com/cloudopsworks/terraform-aws-observability-monitoring.git?ref=v1.0.0"
-}
-
-inputs = {
-  org = {
-    organization_unit = "MyCompany"
-    environment_name = "Staging"
-    environment_type = "staging"
-  }
-
-  monitor_groups = [
-    {
-      service_name = "UserService"
-      type        = "REST"
-      monitors    = [
-        {
-          name        = "High Latency"
-          priority    = "1"
-          target_name = "api_latency"
-          threshold   = 500
-        },
-        {
-          name        = "Error Rate"
-          priority    = "1"
-          target_name = "api_error_rate"
-          threshold   = 5
-        }
-      ]
-    },
-    {
-      service_name = "Database"
-      type        = "RDS"
-      monitors    = [
-        {
-          name        = "CPU Utilization"
-          priority    = "2"
-          target_name = "db_cpu_utilization"
-        },
-        {
-          name        = "Free Storage"
-          priority    = "1"
-          target_name = "db_free_storage"
-        }
-      ]
-    }
-  ]
-
-  alarm_targets = [
-    {
-      name = "staging-alerts"
-      type = "sns"
-    }
-  ]
-}
-
-dependency "vpc" {
-  config_path = "../vpc"
-}
+```yaml
+services:
+  web-eb:
+    display_name: Web Elastic Beanstalk
+    resource_type: elasticbeanstalk_environment
+    resource:
+      elasticbeanstalk:
+        application_name: web-platform
+        environment_name: web-prod
+        enhanced_health_required: true
+        published_metrics:
+          - EnvironmentHealth
+          - ApplicationLatencyP99
+          - ApplicationRequests5xx
+          - ApplicationRequests4xx
+          - ApplicationRequestsTotal
+          - InstancesSevere
+    monitors:
+      health:
+        preset: eb_environment_health
+        name: ENVIRONMENT HEALTH
+        priority: 1
+        threshold: 15
+      latency:
+        preset: eb_latency_p99
+        name: P99 LATENCY
+        priority: 2
+        threshold: 1
+      errors_5xx:
+        preset: eb_5xx_count
+        name: HTTP 5XX
+        priority: 1
+        threshold: 10
+      requests:
+        preset: eb_requests_total
+        name: REQUEST COUNT
+        dashboard_only: true
+    slos:
+      latency:
+        type: metric-query
+        preset: eb_latency_p99
+        threshold: 1
+        comparison: LessThan
+        goal:
+          attainment: 99.9
+          duration: 7
+          duration_unit: DAY
+      availability:
+        type: request-based
+        preset: eb_5xx_availability
+        goal:
+          attainment: 99.5
+          duration: 7
+          duration_unit: DAY
 ```
 
-### Multi-Region Monitoring Setup
+## Extending with a custom CloudWatch metric
 
-This example shows how to configure monitoring across multiple AWS regions:
+```yaml
+monitor_definitions:
+  sqs_queue_depth:
+    resource_type: custom
+    signal: saturation
+    display_name: Queue Depth
+    description_template: Queue depth for ${group.service_name} is high
+    comparison_operator: GreaterThanThreshold
+    default_threshold: 100
+    evaluation_periods: 1
+    datapoints_to_alarm: 1
+    period: 60
+    statistic: Average
+    metric:
+      namespace: AWS/SQS
+      metric_name: ApproximateNumberOfMessagesVisible
+      dimensions:
+        QueueName:
+          value_from: ${group.service_name}
 
-```hcl
-include "root" {
-  path = find_in_parent_folders()
-}
-
-terraform {
-  source = "git::https://github.com/cloudopsworks/terraform-aws-observability-monitoring.git?ref=v1.0.0"
-}
-
-inputs = {
-  org = {
-    organization_unit = "GlobalApp"
-    environment_name = "Production"
-    environment_type = "prod"
-  }
-
-  monitor_groups = [
-    {
-      service_name = "GlobalService"
-      type        = "REST"
-      monitors    = [
-        {
-          name        = "Global Latency"
-          priority    = "1"
-          target_name = "api_latency"
-          threshold   = 300
-        }
-      ]
-    }
-  ]
-
-  alarm_targets = [
-    {
-      name = "global-alerts"
-      type = "sns"
-    }
-  ]
-
-  regions = ["us-east-1", "eu-west-1", "ap-southeast-1"]
-}
+services:
+  payments-queue:
+    resource_type: custom
+    resource:
+      dimensions:
+        QueueName: payments-prod
+    monitors:
+      queue_depth:
+        preset: sqs_queue_depth
+        name: QUEUE DEPTH
+        priority: 2
+        threshold: 500
 ```
 
 
@@ -551,14 +516,14 @@ Available targets:
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.3 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 6.4 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 6.35 |
 | <a name="requirement_awscc"></a> [awscc](#requirement\_awscc) | ~> 1.49 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 6.4 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 6.35 |
 | <a name="provider_awscc"></a> [awscc](#provider\_awscc) | ~> 1.49 |
 
 ## Modules
@@ -571,6 +536,8 @@ Available targets:
 
 | Name | Type |
 |------|------|
+| [aws_cloudwatch_dashboard.fleet](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_dashboard) | resource |
+| [aws_cloudwatch_dashboard.service](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_dashboard) | resource |
 | [aws_cloudwatch_metric_alarm.monitor](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
 | [awscc_applicationsignals_service_level_objective.slo](https://registry.terraform.io/providers/hashicorp/awscc/latest/docs/resources/applicationsignals_service_level_objective) | resource |
 | [aws_lambda_function.lambda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lambda_function) | data source |
@@ -581,17 +548,26 @@ Available targets:
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_alarm_targets"></a> [alarm\_targets](#input\_alarm\_targets) | List of targets for the alarm actions in form type: name, type is one of `sns`, `lambda`, `autoscaling`, `ec2`, `ssm` | <pre>list(object({<br/>    type = string<br/>    name = string<br/>  }))</pre> | `[]` | no |
+| <a name="input_alarm_targets"></a> [alarm\_targets](#input\_alarm\_targets) | List of alarm action targets. Supported types are `sns` and `lambda`; empty or null disables actions. | <pre>list(object({<br/>    type = string<br/>    name = string<br/>  }))</pre> | `[]` | no |
+| <a name="input_dashboard_settings"></a> [dashboard\_settings](#input\_dashboard\_settings) | CloudWatch dashboard generation settings. | <pre>object({<br/>    enabled            = optional(bool, true)<br/>    name_prefix        = optional(string)<br/>    create_fleet       = optional(bool, true)<br/>    create_per_service = optional(bool, true)<br/>    include_slo_only   = optional(bool, true)<br/>    period             = optional(number, 300)<br/>    start              = optional(string, "-PT6H")<br/>    widgets_per_row    = optional(number, 2)<br/>    presets            = optional(list(string), ["golden-signals", "alarm-status", "slo-health"])<br/>    custom_widgets = optional(list(object({<br/>      id         = string<br/>      position   = optional(string, "append")<br/>      type       = string<br/>      title      = optional(string)<br/>      markdown   = optional(string)<br/>      width      = optional(number)<br/>      height     = optional(number)<br/>      properties = optional(any)<br/>    })), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_extra_tags"></a> [extra\_tags](#input\_extra\_tags) | Extra tags to add to the resources | `map(string)` | `{}` | no |
 | <a name="input_is_hub"></a> [is\_hub](#input\_is\_hub) | Is this a hub or spoke configuration? | `bool` | `false` | no |
-| <a name="input_monitor_groups"></a> [monitor\_groups](#input\_monitor\_groups) | List of configuration for the monitoring group | `any` | `[]` | no |
+| <a name="input_monitor_definitions"></a> [monitor\_definitions](#input\_monitor\_definitions) | Custom monitor presets keyed by preset name. | <pre>map(object({<br/>    resource_type        = string<br/>    signal               = string<br/>    display_name         = string<br/>    description_template = optional(string)<br/>    default_threshold    = optional(number)<br/>    comparison_operator  = optional(string)<br/>    evaluation_periods   = optional(number, 1)<br/>    datapoints_to_alarm  = optional(number, 1)<br/>    period               = optional(number)<br/>    statistic            = optional(string)<br/>    unit                 = optional(string)<br/>    treat_missing_data   = optional(string, "missing")<br/>    dashboard_only       = optional(bool, false)<br/>    prerequisites        = optional(list(string), [])<br/>    metric = optional(object({<br/>      namespace   = string<br/>      metric_name = string<br/>      dimensions = map(object({<br/>        value      = optional(string)<br/>        value_from = optional(string)<br/>      }))<br/>      statistic = optional(string)<br/>      period    = optional(number)<br/>      unit      = optional(string)<br/>    }))<br/>    metric_query = optional(list(object({<br/>      id          = string<br/>      expression  = optional(string)<br/>      label       = optional(string)<br/>      return_data = optional(bool, true)<br/>      metric = optional(object({<br/>        namespace   = string<br/>        metric_name = string<br/>        dimensions = map(object({<br/>          value      = optional(string)<br/>          value_from = optional(string)<br/>        }))<br/>        statistic = string<br/>        period    = optional(number)<br/>        unit      = optional(string)<br/>      }))<br/>    })), [])<br/>    slo = optional(object({<br/>      supported          = optional(bool, false)<br/>      type               = optional(string)<br/>      bad_count_preset   = optional(string)<br/>      total_count_preset = optional(string)<br/>    }), {})<br/>    dashboard = optional(object({<br/>      widget_type = optional(string, "metric")<br/>      width       = optional(number, 12)<br/>      height      = optional(number, 6)<br/>      title       = optional(string)<br/>    }), {})<br/>  }))</pre> | `{}` | no |
+| <a name="input_monitor_groups"></a> [monitor\_groups](#input\_monitor\_groups) | Legacy list of monitoring groups. Kept for backward compatibility. | `any` | `[]` | no |
 | <a name="input_org"></a> [org](#input\_org) | Organization details | <pre>object({<br/>    organization_name = string<br/>    organization_unit = string<br/>    environment_type  = string<br/>    environment_name  = string<br/>  })</pre> | n/a | yes |
-| <a name="input_slo_settings"></a> [slo\_settings](#input\_slo\_settings) | Settings for the monitoring module | `any` | `{}` | no |
+| <a name="input_resource_profiles"></a> [resource\_profiles](#input\_resource\_profiles) | Custom resource profiles keyed by profile name. | <pre>map(object({<br/>    resource_type = string<br/>    identity = object({<br/>      required_fields      = list(string)<br/>      canonical_key_format = string<br/>      environment_format   = optional(string)<br/>      service_name_from    = string<br/>    })<br/>    capabilities = object({<br/>      latency           = optional(bool, false)<br/>      errors            = optional(bool, false)<br/>      faults            = optional(bool, false)<br/>      traffic           = optional(bool, false)<br/>      saturation        = optional(bool, false)<br/>      health            = optional(bool, false)<br/>      app_signals_slo   = optional(bool, false)<br/>      metric_query_slo  = optional(bool, false)<br/>      request_based_slo = optional(bool, false)<br/>    })<br/>    default_monitor_presets   = optional(map(string), {})<br/>    default_dashboard_presets = optional(list(string), [])<br/>    prerequisites             = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
+| <a name="input_services"></a> [services](#input\_services) | Typed v2 service observability definitions for alarms, SLOs, and dashboards. | <pre>map(object({<br/>    enabled       = optional(bool, true)<br/>    display_name  = optional(string)<br/>    resource_type = string<br/>    profile       = optional(string)<br/><br/>    resource = object({<br/>      account_id = optional(string)<br/>      region     = optional(string)<br/>      partition  = optional(string, "aws")<br/><br/>      eks = optional(object({<br/>        cluster_name = string<br/>        namespace    = string<br/>        service_name = string<br/>      }))<br/><br/>      lambda = optional(object({<br/>        function_name = string<br/>        alias         = optional(string)<br/>      }))<br/><br/>      elasticbeanstalk = optional(object({<br/>        application_name         = string<br/>        environment_name         = string<br/>        platform                 = optional(string, "linux")<br/>        enhanced_health_required = optional(bool, true)<br/>        published_metrics        = optional(set(string), ["EnvironmentHealth"])<br/>      }))<br/><br/>      app_signals = optional(object({<br/>        enabled     = optional(bool, true)<br/>        environment = optional(string)<br/>        service     = optional(string)<br/>      }), {})<br/><br/>      dimensions = optional(map(string), {})<br/>    })<br/><br/>    monitors = optional(map(object({<br/>      enabled               = optional(bool, true)<br/>      preset                = optional(string)<br/>      name                  = optional(string)<br/>      priority              = optional(number, 3)<br/>      threshold             = optional(number)<br/>      comparison_operator   = optional(string)<br/>      evaluation_periods    = optional(number)<br/>      datapoints_to_alarm   = optional(number)<br/>      period                = optional(number)<br/>      statistic             = optional(string)<br/>      unit                  = optional(string)<br/>      treat_missing_data    = optional(string)<br/>      dashboard_only        = optional(bool, false)<br/>      allow_missing_metrics = optional(bool, false)<br/>      override              = optional(bool, false)<br/>      name_override         = optional(string)<br/>      description_override  = optional(string)<br/>      metric = optional(object({<br/>        namespace   = string<br/>        metric_name = string<br/>        dimensions  = optional(map(string), {})<br/>        statistic   = optional(string)<br/>        period      = optional(number)<br/>        unit        = optional(string)<br/>      }))<br/>      metric_query = optional(list(object({<br/>        id          = string<br/>        expression  = optional(string)<br/>        label       = optional(string)<br/>        return_data = optional(bool, true)<br/>        metric = optional(object({<br/>          namespace   = string<br/>          metric_name = string<br/>          dimensions  = optional(map(string), {})<br/>          statistic   = string<br/>          period      = optional(number)<br/>          unit        = optional(string)<br/>        }))<br/>      })), [])<br/>      dashboard = optional(object({<br/>        widget_type = optional(string, "metric")<br/>        title       = optional(string)<br/>        width       = optional(number, 12)<br/>        height      = optional(number, 6)<br/>      }), {})<br/>    })), {})<br/><br/>    slos = optional(map(object({<br/>      enabled              = optional(bool, true)<br/>      type                 = string<br/>      preset               = optional(string)<br/>      name_override        = optional(string)<br/>      description          = optional(string)<br/>      comparison           = optional(string)<br/>      comparisson          = optional(string)<br/>      threshold            = optional(number)<br/>      metric_type          = optional(string)<br/>      statistic            = optional(string)<br/>      period_seconds       = optional(number)<br/>      operations           = optional(list(string), [])<br/>      latency_threshold    = optional(number)<br/>      errors_threshold     = optional(number)<br/>      traffic_threshold    = optional(number)<br/>      saturation_threshold = optional(number)<br/>      saturation_metric    = optional(string)<br/>      goal = optional(object({<br/>        attainment        = optional(number, 99.9)<br/>        duration          = optional(number, 7)<br/>        duration_unit     = optional(string, "DAY")<br/>        warning_threshold = optional(number, 80)<br/>      }), {})<br/>    })), {})<br/><br/>    dashboard = optional(object({<br/>      enabled     = optional(bool, true)<br/>      presets     = optional(list(string), [])<br/>      runbook_url = optional(string)<br/>      custom_widgets = optional(list(object({<br/>        id         = string<br/>        position   = optional(string, "append")<br/>        type       = string<br/>        title      = optional(string)<br/>        markdown   = optional(string)<br/>        width      = optional(number)<br/>        height     = optional(number)<br/>        properties = optional(any)<br/>      })), [])<br/>    }), {})<br/><br/>    tags = optional(map(string), {})<br/>  }))</pre> | `{}` | no |
+| <a name="input_slo_settings"></a> [slo\_settings](#input\_slo\_settings) | Legacy SLO settings for the monitoring module. Kept for backward compatibility. | `any` | `{}` | no |
 | <a name="input_spoke_def"></a> [spoke\_def](#input\_spoke\_def) | Spoke ID Number, must be a 3 digit number | `string` | `"001"` | no |
 
 ## Outputs
 
-No outputs.
+| Name | Description |
+|------|-------------|
+| <a name="output_alarm_arns"></a> [alarm\_arns](#output\_alarm\_arns) | CloudWatch alarm ARNs keyed by canonical service key and monitor key. |
+| <a name="output_alarm_names"></a> [alarm\_names](#output\_alarm\_names) | CloudWatch alarm names keyed by canonical service key and monitor key. |
+| <a name="output_dashboard_names"></a> [dashboard\_names](#output\_dashboard\_names) | CloudWatch dashboard names keyed by dashboard key. |
+| <a name="output_slo_names"></a> [slo\_names](#output\_slo\_names) | Application Signals service level objective names keyed by canonical service key and SLO key. |
 
 
 
