@@ -1,0 +1,200 @@
+# Module configuration
+alarm_targets: []
+#  - type: sns
+#    name: SLACK-4wrd-prd-apps-alarms
+monitor_groups:
+  - service_name: "bankbot-helm"
+    type: eks
+    cluster_name: "eks-forward-main-prod-003-usea1"
+    namespace: "bankbot-prod"
+    monitors:
+      - name: "REQUEST LATENCY"
+        target_name: lat_eks_service_requests_apm
+        priority: 2
+        service_name: "bankbot-helm"
+        threshold: 80
+
+      - name: "REQUEST ERROR RATE"
+        target_name: err_eks_service_requests_apm
+        priority: 1
+        threshold: 10
+
+      - name: "REQUEST COUNT"
+        target_name: trf_eks_service_requests_apm
+        priority: 3
+        threshold: 150
+
+      - name: "CPU USAGE"
+        target_name: sat_eks_container_cpu_utilization
+        priority: 3
+        threshold: 85
+
+      - name: "MEMORY USAGE"
+        target_name: sat_eks_container_memory_utilization
+        priority: 3
+        threshold: 85
+
+  - service_name: "cognito-lambda-auth-prod"
+    type: lambda
+    monitors:
+      - name: "REQUEST LATENCY"
+        target_name: lat_lambda_service_requests_apm
+        priority: 2
+        threshold: 10000
+
+      - name: "REQUEST ERROR RATE"
+        target_name: err_lambda_service_requests_apm
+        priority: 1
+        threshold: 5
+
+      - name: "REQUEST COUNT"
+        target_name: trf_lambda_service_requests_apm
+        priority: 3
+        threshold: 200
+
+slos:
+  service_level_objectives:
+    - name: "bankbot"
+      type: "golden-signal"
+      service_level_indicator:
+        eks:
+          cluster_name: "eks-forward-main-prod-003-usea1"
+          namespace: "bankbot-prod"
+          name: "bankbot-helm"
+        latency_threshold: 100
+        errors_threshold: 5
+        saturation_threshold: 85
+        saturation_metric: "CPU"
+        traffic_threshold: 1000
+        period_seconds: 300
+      goal:
+        attainment: 99.9
+        duration: 5
+        duration_unit: "DAY"
+
+    - name: "marketplace"
+      type: "golden-signal"
+      service_level_indicator:
+        eks:
+          cluster_name: "eks-forward-main-prod-003-usea1"
+          namespace: "marketplace-prod"
+          name: "forward-marketplace-server-helm"
+        latency_threshold: 300
+        errors_threshold: 5
+        saturation_threshold: 85
+        saturation_metric: "CPU"
+        traffic_threshold: 1000
+        period_seconds: 300
+      goal:
+        attainment: 99.9
+        duration: 5
+        duration_unit: "DAY"
+    - name: "marketplace-mc"
+      type: "golden-signal"
+      service_level_indicator:
+        eks:
+          cluster_name: "eks-forward-main-prod-003-usea1"
+          namespace: "marketplace-mc-prod"
+          name: "forward-marketplace-server-helm"
+        latency_threshold: 300
+        errors_threshold: 5
+        saturation_threshold: 85
+        saturation_metric: "CPU"
+        traffic_threshold: 1000
+        period_seconds: 300
+      goal:
+        attainment: 99.9
+        duration: 5
+        duration_unit: "DAY"
+
+#    - name: "bankbot"
+#      description: "SLO for bankbot service"
+#      type: "operational"
+#      service_level_indicator:
+#        comparison: "LessThan"
+#        environment: "eks:eks-forward-main-prod-003-usea1/bankbot-prod"
+#        name: "bankbot-helm"
+#        type: "Service"
+#        threshold: 100
+#        metric_type: "LATENCY"
+#        operations:
+#          - "GET /"
+#          - "GET /health"
+#          - "POST /access"
+#          - "POST /access/token/generate"
+#        period_seconds: 60
+#        statistic: "p99"
+#        goal:
+#          attainment: 99.9
+#          duration: 7
+#          duration_unit: "DAY"
+#    - name: "marketplace"
+#      description: "SLO for marketplace service"
+#      type: "operational"
+#      service_level_indicator:
+#        comparison: "LessThan"
+#        eks:
+#          cluster_name: "eks-forward-main-prod-003-usea1"
+#          namespace: "marketplace-prod"
+#          name: "forward-marketplace-server-helm"
+#        threshold: 300
+#        metric_type: "LATENCY"
+#        operations:
+#          - "GET /health"
+#          - "GET /api"
+#          - "GET /api/auth/profile"
+#          - "POST /api"
+#          - "POST /api/auth/logout"
+#          - "POST /api/auth/login"
+#          - "POST /api/auth/chatbot/token"
+#        period_seconds: 60
+#        statistic: "p99"
+#      goal:
+#        attainment: 99.9
+#        duration: 5
+#        duration_unit: "DAY"
+#    - name: "marketplace-mc"
+#      description: "SLO for marketplace mastercard service"
+#      type: "operational"
+#      service_level_indicator:
+#        comparison: "LessThan"
+#        eks:
+#          cluster_name: "eks-forward-main-prod-003-usea1"
+#          namespace: "marketplace-mc-prod"
+#          name: "forward-marketplace-server-helm"
+#        threshold: 300
+#        metric_type: "LATENCY"
+#        operations:
+#          - "GET /health"
+#          - "GET /api"
+#          - "GET /api/auth/profile"
+#          - "POST /api"
+#          - "POST /api/auth/logout"
+#          - "POST /api/auth/login"
+#          - "POST /api/auth/chatbot/token"
+#        period_seconds: 60
+#        statistic: "p99"
+#        goal:
+#          attainment: 99.9
+#          duration: 7
+#          duration_unit: "DAY"
+    - name: "sink"
+      description: "SLO for Marketplace Sink service"
+      type: "operational"
+      service_level_indicator:
+        comparison: "LessThan"
+        eks:
+          cluster_name: "eks-forward-main-prod-003-usea1"
+          namespace: "sink-prod"
+          name: "sink-frontend-helm"
+        threshold: 100
+        metric_type: "LATENCY"
+        operations:
+          - "GET /api/sink/v2/grouped"
+          - "GET /api/sink/v2/codes"
+        period_seconds: 60
+        statistic: "p99"
+      goal:
+        attainment: 99.9
+        duration: 1
+        duration_unit: "DAY"
