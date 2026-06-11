@@ -1,0 +1,61 @@
+alarm_targets: []
+services:
+  payments-eb:
+    display_name: Payments Elastic Beanstalk
+    resource_type: elasticbeanstalk_environment
+    resource:
+      elasticbeanstalk:
+        application_name: payments
+        environment_name: payments-prod
+        platform: linux
+        enhanced_health_required: true
+        published_metrics:
+          - EnvironmentHealth
+          - ApplicationLatencyP99
+          - ApplicationRequests5xx
+          - ApplicationRequestsTotal
+          - InstancesSevere
+      app_signals:
+        enabled: false
+    monitors:
+      health:
+        preset: eb_environment_health
+        priority: 1
+        threshold: 15
+      latency:
+        preset: eb_latency_p99
+        priority: 2
+        threshold: 1.0
+      faults:
+        preset: eb_5xx_count
+        priority: 1
+        threshold: 10
+      traffic:
+        preset: eb_requests_total
+        priority: 3
+        dashboard_only: true
+      severe_instances:
+        preset: eb_instances_severe
+        priority: 2
+        threshold: 0
+    slos:
+      latency_p99:
+        type: metric-query
+        preset: eb_latency_p99
+        comparison: LessThan
+        threshold: 1.0
+        period_seconds: 60
+        statistic: Average
+        goal:
+          attainment: 99.9
+          duration: 7
+          duration_unit: DAY
+      availability_5xx:
+        type: request-based
+        preset: eb_5xx_availability
+        goal:
+          attainment: 99.9
+          duration: 7
+          duration_unit: DAY
+    dashboard:
+      presets: [elasticbeanstalk-health, golden-signals, alarm-status, slo-health]

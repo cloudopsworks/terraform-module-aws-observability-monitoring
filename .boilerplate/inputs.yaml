@@ -1,18 +1,223 @@
 # Module configuration
-# Required variables
-{{- range .requiredVariables }}
-{{- if ne .Name "org"}}
-# Description {{ .Description }} , Type: {{ .Type }}
-{{ .Name }}: {{ .DefaultValuePlaceholder }}
-{{- end }}
 
-{{- end }}
-# Optional variables
-{{- range .optionalVariables }}
-{{- if ne .Name "is_hub" "spoke_def" "extra_args" }}
-# Description {{ .Description }} , Type: {{ .Type }}
-#{{ .Name }}: {{ .DefaultValue }}
-{{- end }}
+alarm_targets: [] # (Optional) Alarm action targets. Default: []; set null or [] to disable actions.
+# alarm_targets: # (Optional) Existing SNS topics or Lambda functions invoked by CloudWatch alarms.
+#   - type: sns # (Required) Target type. Valid values: sns, lambda.
+#     name: sre-critical-alerts # (Required) Existing SNS topic name or Lambda function name.
 
-{{- end }}
+monitor_groups: [] # (Optional) Legacy monitor groups. Default: []; preserved for existing deployments.
+# monitor_groups: # (Optional) Legacy alarm-only configuration; prefer services for new deployments.
+#   - service_name: checkout-helm # (Required) Service/resource name used in alarm names and metric dimensions.
+#     type: eks # (Required) Legacy resource type. Valid values: eks, lambda, apigateway, elasticbeanstalk, custom.
+#     cluster_name: eks-prod-use1 # (Required for eks) EKS cluster name.
+#     namespace: checkout-prod # (Required for eks) Kubernetes namespace.
+#     application_name: my-application # (Required for elasticbeanstalk) Elastic Beanstalk application name.
+#     environment_name: my-environment # (Required for elasticbeanstalk) Elastic Beanstalk environment name.
+#     stage: prod # (Required for apigateway) API Gateway stage name.
+#     tags: {} # (Optional) Extra tags merged into generated alarms. Default: {}.
+#     monitors: # (Required) Preset alarms to create for this group.
+#       - name: REQUEST LATENCY # (Required) Human-readable alarm label.
+#         target_name: lat_eks_service_requests_apm # (Required) Built-in or custom monitor preset key.
+#         priority: 2 # (Required) Alarm priority used in generated alarm names.
+#         threshold: 100 # (Optional) Override preset threshold. Default: preset-specific.
+#         period: 60 # (Optional) Override metric period in seconds. Default: preset-specific.
+#         statistic: p99 # (Optional) Override CloudWatch statistic. Default: preset-specific.
+#         evaluation_periods: 1 # (Optional) Override evaluation periods. Default: preset-specific.
+#         datapoints_to_alarm: 1 # (Optional) Override datapoints to alarm. Default: preset-specific.
+#         comparison_operator: GreaterThanOrEqualToThreshold # (Optional) Override comparison operator.
+#         treat_missing_data: missing # (Optional) Missing-data behavior. Default: preset-specific or missing.
+#         dashboard_only: false # (Optional) If true, render dashboard widget without creating an alarm. Default: false.
 
+slo_settings: {} # (Optional) Legacy SLO settings. Default: {}; equivalent Terragrunt legacy key: slos.
+# slos: {} # (Optional) Backward-compatible Terragrunt alias for slo_settings; used only if slo_settings is absent.
+# slo_settings: # (Optional) CloudWatch Application Signals SLO definitions.
+#   service_level_objectives: # (Optional) List of SLOs. Default: [].
+#     - name: checkout # (Required) SLO name suffix.
+#       description: Checkout Golden Signals SLO # (Optional) SLO description. Default: generated from name.
+#       type: golden-signal # (Required) SLO type. Valid values: golden-signal, operational, metric-query, request-based.
+#       enabled: true # (Optional) Whether to create the SLO. Default: true.
+#       service_level_indicator: # (Required) SLI configuration.
+#         eks: # (Optional) EKS Application Signals identity.
+#           cluster_name: eks-prod-use1 # (Required) EKS cluster name.
+#           namespace: checkout-prod # (Required) Kubernetes namespace.
+#           name: checkout-helm # (Required) Application Signals service name.
+#         lambda: # (Optional) Lambda Application Signals identity.
+#           function_name: auth-handler # (Required) Lambda function name.
+#         elasticbeanstalk: # (Optional) Elastic Beanstalk identity for metric-query/request-based SLOs.
+#           application_name: eb-app # (Required) Elastic Beanstalk application name.
+#           environment_name: eb-prod # (Required) Elastic Beanstalk environment name.
+#         comparison: LessThan # (Optional) SLI comparison operator. Default: LessThan; replaces deprecated comparisson.
+#         comparisson: LessThan # (Optional) Deprecated compatibility alias for comparison.
+#         threshold: 1 # (Required for metric-query/operational) Threshold value.
+#         metric_type: LATENCY # (Optional for operational) Valid examples: LATENCY, AVAILABILITY. Default: LATENCY.
+#         statistic: p99 # (Optional) SLI statistic. Default: p99 for operational, Average for metric SLOs.
+#         operations: [] # (Optional for operational) Application Signals operation names. Default: [].
+#         latency_threshold: 300 # (Required for golden-signal) Latency threshold in milliseconds.
+#         errors_threshold: 5 # (Required for golden-signal) Error threshold.
+#         traffic_threshold: 1000 # (Required for golden-signal) Request-count threshold.
+#         saturation_threshold: 85 # (Required for golden-signal) Saturation threshold.
+#         saturation_metric: CPU # (Optional for EKS golden-signal) Valid values: CPU, MEMORY. Default: CPU.
+#         period_seconds: 300 # (Optional) SLI period in seconds. Default: 300.
+#       preset: eb_latency_p99 # (Required for metric-query/request-based) Monitor preset used as SLO metric source.
+#       goal: # (Optional) SLO goal settings.
+#         attainment: 99.9 # (Optional) Attainment percentage. Default: 99.9.
+#         duration: 7 # (Optional) Rolling interval duration. Default: 7.
+#         duration_unit: DAY # (Optional) Valid values: DAY, HOUR, WEEK, MONTH, YEAR. Default: DAY.
+#         warning_threshold: 80 # (Optional) Burn-rate warning threshold. Default: 80.
+#       tags: {} # (Optional) Additional SLO tags. Default: {}.
+
+services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and dashboards. Default: {}.
+# services: # (Optional) Preferred configuration model for new deployments.
+#   checkout: # (Required) Stable service key used for dashboards and cross-resource grouping.
+#     enabled: true # (Optional) Whether this service is managed. Default: true.
+#     display_name: Checkout API # (Optional) Display name for dashboards. Default: service key.
+#     resource_type: eks_service # (Required) Valid values: eks_service, lambda_function, elasticbeanstalk_environment, custom.
+#     profile: eks-appsignals # (Optional) Custom resource profile key. Default: built-in behavior.
+#     resource: # (Required) Exactly one identity block must match resource_type.
+#       account_id: "123456789012" # (Optional) Metric account ID for cross-account SLO/alarm queries. Default: provider account.
+#       region: us-east-1 # (Optional) Resource region. Default: provider region.
+#       partition: aws # (Optional) AWS partition. Default: aws.
+#       eks: # (Required for eks_service) EKS service identity.
+#         cluster_name: eks-prod-use1 # (Required) EKS cluster name.
+#         namespace: checkout-prod # (Required) Kubernetes namespace.
+#         service_name: checkout-helm # (Required) Kubernetes/Application Signals service name.
+#       lambda: # (Required for lambda_function) Lambda function identity.
+#         function_name: auth-handler # (Required) Lambda function name.
+#         alias: live # (Optional) Lambda alias. Default: omitted.
+#       elasticbeanstalk: # (Required for elasticbeanstalk_environment) Elastic Beanstalk identity.
+#         application_name: eb-app # (Required) Application name.
+#         environment_name: eb-prod # (Required) Environment name; used for EnvironmentName metric dimension.
+#         platform: linux # (Optional) Platform family. Default: linux.
+#         enhanced_health_required: true # (Optional) Enhanced health must be enabled for most EB metrics. Default: true.
+#         published_metrics: # (Optional) EB metrics expected to be published. Default: [EnvironmentHealth].
+#           - EnvironmentHealth
+#           - ApplicationLatencyP99
+#           - ApplicationRequests5xx
+#           - ApplicationRequestsTotal
+#       app_signals: # (Optional) Application Signals override for SLOs. Default: enabled.
+#         enabled: true # (Optional) Whether Application Signals identities are used. Default: true.
+#         environment: eks:eks-prod-use1/checkout-prod # (Optional) Override Application Signals Environment value.
+#         service: checkout-helm # (Optional) Override Application Signals Service value.
+#       dimensions: {} # (Required for custom) CloudWatch dimensions for custom resources. Default: {}.
+#     monitors: # (Optional) Monitors keyed by stable monitor ID. Default: {}.
+#       latency: # (Required) Stable monitor key.
+#         enabled: true # (Optional) Whether this monitor is managed. Default: true.
+#         preset: lat_eks_service_requests_apm # (Optional) Built-in/custom monitor preset. Default: monitor key.
+#         name: REQUEST LATENCY # (Optional) Alarm/dashboard label. Default: monitor key converted to words.
+#         priority: 2 # (Optional) Alarm priority. Default: 3.
+#         threshold: 300 # (Optional) Override threshold. Default: preset-specific.
+#         comparison_operator: GreaterThanOrEqualToThreshold # (Optional) Override comparison operator. Default: preset-specific.
+#         evaluation_periods: 1 # (Optional) Override evaluation periods. Default: preset-specific.
+#         datapoints_to_alarm: 1 # (Optional) Override datapoints to alarm. Default: preset-specific.
+#         period: 60 # (Optional) Override metric period in seconds. Default: preset-specific.
+#         statistic: p99 # (Optional) Override statistic. Default: preset-specific.
+#         unit: Milliseconds # (Optional) CloudWatch unit. Default: preset-specific.
+#         treat_missing_data: missing # (Optional) Missing-data treatment. Default: preset-specific or missing.
+#         dashboard_only: false # (Optional) Render widget only without creating alarm. Default: false.
+#         allow_missing_metrics: false # (Optional) Documentation guard for metrics not always published. Default: false.
+#         override: false # (Optional) Indicates custom metric fields replace preset values. Default: false.
+#         name_override: "[P2] [ops] [prod] [checkout] REQUEST LATENCY - eks - production" # (Optional) Full alarm name override.
+#         description_override: Custom latency alarm # (Optional) Alarm description override.
+#         metric: # (Optional) Direct CloudWatch metric override.
+#           namespace: AWS/Lambda # (Required) CloudWatch namespace.
+#           metric_name: Duration # (Required) CloudWatch metric name.
+#           dimensions: {} # (Optional) Metric dimensions. Default: {}.
+#           statistic: Average # (Optional) Statistic. Default: monitor or preset statistic.
+#           period: 60 # (Optional) Period in seconds. Default: monitor or preset period.
+#           unit: Milliseconds # (Optional) CloudWatch unit. Default: omitted.
+#         metric_query: [] # (Optional) Metric math query override. Default: [].
+#         dashboard: # (Optional) Widget override.
+#           widget_type: metric # (Optional) Widget type. Default: metric.
+#           title: Latency p99 # (Optional) Widget title. Default: monitor name.
+#           width: 12 # (Optional) Widget width. Default: 12.
+#           height: 6 # (Optional) Widget height. Default: 6.
+#     slos: # (Optional) Service-scoped SLOs. Default: {}.
+#       golden: # (Required) Stable SLO key.
+#         enabled: true # (Optional) Whether this SLO is managed. Default: true.
+#         type: golden-signal # (Required) Valid values: golden-signal, operational, metric-query, request-based.
+#         preset: eb_5xx_availability # (Optional) Required for metric-query/request-based SLOs.
+#         name_override: checkout # (Optional) SLO name override. Default: service or service-slo key.
+#         description: Checkout golden signals # (Optional) SLO description. Default: generated.
+#         comparison: LessThan # (Optional) Comparison operator. Default: LessThan.
+#         threshold: 1 # (Optional) Generic threshold for metric-query/operational SLOs.
+#         metric_type: LATENCY # (Optional) Operational SLO metric type. Default: LATENCY.
+#         statistic: p99 # (Optional) SLI statistic. Default: p99/Average depending on SLO type.
+#         period_seconds: 300 # (Optional) SLI period in seconds. Default: 300.
+#         operations: [] # (Optional) Operational SLO operation names. Default: [].
+#         latency_threshold: 300 # (Optional) Golden Signals latency threshold.
+#         errors_threshold: 5 # (Optional) Golden Signals errors threshold.
+#         traffic_threshold: 1000 # (Optional) Golden Signals traffic threshold.
+#         saturation_threshold: 85 # (Optional) Golden Signals saturation threshold.
+#         saturation_metric: CPU # (Optional) Valid values: CPU, MEMORY. Default: CPU.
+#         goal: # (Optional) SLO goal settings.
+#           attainment: 99.9 # (Optional) Attainment percentage. Default: 99.9.
+#           duration: 7 # (Optional) Rolling interval duration. Default: 7.
+#           duration_unit: DAY # (Optional) Rolling interval unit. Default: DAY.
+#           warning_threshold: 80 # (Optional) Burn-rate warning threshold. Default: 80.
+#     dashboard: # (Optional) Per-service dashboard settings. Default: enabled.
+#       enabled: true # (Optional) Include service in generated dashboards. Default: true.
+#       presets: [] # (Optional) Dashboard preset names. Default: [] until implemented by profile.
+#       runbook_url: https://runbooks.example.com/checkout # (Optional) Runbook URL rendered in custom widgets. Default: omitted.
+#       custom_widgets: [] # (Optional) Extra widgets appended to the service dashboard. Default: [].
+#     tags: {} # (Optional) Extra tags merged into alarms and SLOs. Default: {}.
+
+monitor_definitions: {} # (Optional) Custom monitor presets keyed by preset name. Default: {}.
+# monitor_definitions: # (Optional) Add or override monitor presets without changing module code.
+#   custom_queue_depth: # (Required) Preset key referenced by services.*.monitors.*.preset.
+#     resource_type: custom # (Required) Resource family this preset supports.
+#     signal: saturation # (Required) Golden Signal classification: latency, traffic, errors, saturation, health.
+#     display_name: Queue Depth # (Required) Human-readable preset name.
+#     description_template: Queue depth for ${group.service_name} is high # (Optional) Alarm description template.
+#     default_threshold: 100 # (Optional) Default threshold. Default: omitted.
+#     comparison_operator: GreaterThanThreshold # (Optional) CloudWatch comparison operator. Default: preset/user provided.
+#     evaluation_periods: 1 # (Optional) Evaluation periods. Default: 1.
+#     datapoints_to_alarm: 1 # (Optional) Datapoints to alarm. Default: 1.
+#     period: 60 # (Optional) Metric period in seconds. Default: omitted.
+#     statistic: Average # (Optional) CloudWatch statistic. Default: omitted.
+#     unit: Count # (Optional) CloudWatch unit. Default: omitted.
+#     treat_missing_data: missing # (Optional) Missing-data treatment. Default: missing.
+#     dashboard_only: false # (Optional) If true, dashboard widget only. Default: false.
+#     prerequisites: [] # (Optional) Operational prerequisites for this metric. Default: [].
+#     metric: # (Optional) Direct metric definition.
+#       namespace: Custom/App # (Required) CloudWatch namespace.
+#       metric_name: QueueDepth # (Required) CloudWatch metric name.
+#       dimensions: {} # (Required) Dimension templates keyed by dimension name. Default: {}.
+#     metric_query: [] # (Optional) Metric math query definitions. Default: [].
+#     slo: {} # (Optional) SLO helper metadata. Default: {}.
+#     dashboard: {} # (Optional) Dashboard widget defaults. Default: {}.
+
+resource_profiles: {} # (Optional) Custom resource profile definitions. Default: {}.
+# resource_profiles: # (Optional) Extend the service model for additional AWS resource families.
+#   ecs_service: # (Required) Profile key referenced by services.*.profile.
+#     resource_type: custom # (Required) Module resource type this profile maps to.
+#     identity: # (Required) Identity and canonical naming rules.
+#       required_fields: [cluster_name, service_name] # (Required) Required identity fields for operators.
+#       canonical_key_format: ecs:{cluster_name}/{service_name} # (Required) Stable canonical key format.
+#       environment_format: ecs:{cluster_name} # (Optional) Application Signals environment format.
+#       service_name_from: service_name # (Required) Field used as service display/name source.
+#     capabilities: # (Required) Signals supported by this resource family.
+#       latency: true # (Optional) Latency monitors supported. Default: false.
+#       errors: true # (Optional) Error monitors supported. Default: false.
+#       faults: true # (Optional) Fault monitors supported. Default: false.
+#       traffic: true # (Optional) Traffic monitors supported. Default: false.
+#       saturation: true # (Optional) Saturation monitors supported. Default: false.
+#       health: true # (Optional) Health monitors supported. Default: false.
+#       app_signals_slo: true # (Optional) Application Signals SLOs supported. Default: false.
+#       metric_query_slo: true # (Optional) Metric-query SLOs supported. Default: false.
+#       request_based_slo: false # (Optional) Request-based SLOs supported. Default: false.
+#     default_monitor_presets: {} # (Optional) Default monitor presets by signal. Default: {}.
+#     default_dashboard_presets: [] # (Optional) Default dashboard presets. Default: [].
+#     prerequisites: [] # (Optional) Profile prerequisites. Default: [].
+
+dashboard_settings: {} # (Optional) CloudWatch dashboard generation settings. Default: enabled with fleet and per-service dashboards.
+# dashboard_settings: # (Optional) Dashboard generation controls.
+#   enabled: true # (Optional) Create dashboards. Default: true.
+#   name_prefix: nexus-observability # (Optional) Dashboard name prefix. Default: module system short name.
+#   create_fleet: true # (Optional) Create fleet dashboard. Default: true.
+#   create_per_service: true # (Optional) Create one dashboard per service. Default: true.
+#   include_slo_only: true # (Optional) Include SLO-only services in dashboards. Default: true.
+#   period: 300 # (Optional) Dashboard widget period in seconds. Default: 300.
+#   start: -PT6H # (Optional) Dashboard start window. Default: -PT6H.
+#   widgets_per_row: 2 # (Optional) Number of widgets per row. Default: 2.
+#   presets: [golden-signals, alarm-status, slo-health] # (Optional) Dashboard presets. Default: golden-signals, alarm-status, slo-health.
+#   custom_widgets: [] # (Optional) Extra dashboard widgets. Default: [].

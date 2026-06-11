@@ -61,7 +61,9 @@ inputs = {
 
   ## Optional
   {{- range .optionalVariables }}
-  {{- if ne .Name "extra_tags" "is_hub" "spoke_def" "org" }}
+  {{- if eq .Name "slo_settings" }}
+  slo_settings = try(local.local_vars.slo_settings, try(local.local_vars.slos, {}))
+  {{- else if ne .Name "extra_tags" "is_hub" "spoke_def" "org" }}
   {{ .Name }} = try(local.local_vars.{{ .Name }}, {{ .DefaultValue }})
   {{- end }}
   {{- end }}

@@ -1,0 +1,49 @@
+alarm_targets: []
+services:
+  checkout:
+    display_name: Checkout
+    resource_type: eks_service
+    resource:
+      eks:
+        cluster_name: eks-nexus-main-prod-003-usea1
+        namespace: checkout-prod
+        service_name: checkout-helm
+      app_signals:
+        enabled: true
+    monitors:
+      latency:
+        preset: lat_eks_service_requests_apm
+        priority: 2
+        threshold: 80
+        statistic: p99
+      errors:
+        preset: err_eks_service_requests_apm
+        priority: 1
+        threshold: 10
+      traffic:
+        preset: trf_eks_service_requests_apm
+        priority: 3
+        threshold: 150
+      cpu:
+        preset: sat_eks_container_cpu_utilization
+        priority: 3
+        threshold: 85
+      memory:
+        preset: sat_eks_container_memory_utilization
+        priority: 3
+        threshold: 85
+    slos:
+      golden:
+        type: golden-signal
+        latency_threshold: 100
+        errors_threshold: 5
+        traffic_threshold: 1000
+        saturation_threshold: 85
+        saturation_metric: CPU
+        period_seconds: 300
+        goal:
+          attainment: 99.9
+          duration: 5
+          duration_unit: DAY
+    dashboard:
+      presets: [golden-signals, alarm-status, slo-health]

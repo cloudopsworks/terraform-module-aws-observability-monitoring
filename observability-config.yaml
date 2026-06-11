@@ -364,3 +364,102 @@
     * API Gateway: __${group.service_name}__
     * Stage: __${group.stage}__
     * Threshold: __${try(monitor.threshold, 1000)}__ requests per period configured
+- name: sat_lambda_concurrent_executions
+  comparison_operator: GreaterThanOrEqualToThreshold
+  evaluation_periods: 1
+  metric_name: ConcurrentExecutions
+  namespace: AWS/Lambda
+  statistic: Maximum
+  period: 60
+  default_threshold: 100
+  datapoints_to_alarm: 1
+  dimensions:
+    FunctionName: "${group.service_name}"
+  description: |
+    Concurrent executions threshold for Lambda Function has been breached.
+    * Lambda Function: __${group.service_name}__
+- name: eb_environment_health
+  comparison_operator: GreaterThanOrEqualToThreshold
+  evaluation_periods: 1
+  metric_name: EnvironmentHealth
+  namespace: AWS/ElasticBeanstalk
+  statistic: Maximum
+  period: 60
+  default_threshold: 15
+  datapoints_to_alarm: 1
+  dimensions:
+    EnvironmentName: "${group.service_name}"
+  description: |
+    Elastic Beanstalk environment health is Warning or worse.
+    * Environment: __${group.service_name}__
+- name: eb_latency_p99
+  comparison_operator: GreaterThanThreshold
+  evaluation_periods: 1
+  metric_name: ApplicationLatencyP99
+  namespace: AWS/ElasticBeanstalk
+  statistic: Average
+  period: 60
+  default_threshold: 1
+  datapoints_to_alarm: 1
+  dimensions:
+    EnvironmentName: "${group.service_name}"
+  description: |
+    Elastic Beanstalk p99 application latency threshold has been breached.
+    * Environment: __${group.service_name}__
+- name: eb_5xx_count
+  comparison_operator: GreaterThanThreshold
+  evaluation_periods: 1
+  metric_name: ApplicationRequests5xx
+  namespace: AWS/ElasticBeanstalk
+  statistic: Sum
+  period: 60
+  default_threshold: 10
+  datapoints_to_alarm: 1
+  dimensions:
+    EnvironmentName: "${group.service_name}"
+  description: |
+    Elastic Beanstalk HTTP 5xx request count threshold has been breached.
+    * Environment: __${group.service_name}__
+- name: eb_4xx_count
+  comparison_operator: GreaterThanThreshold
+  evaluation_periods: 1
+  metric_name: ApplicationRequests4xx
+  namespace: AWS/ElasticBeanstalk
+  statistic: Sum
+  period: 60
+  default_threshold: 10
+  datapoints_to_alarm: 1
+  dimensions:
+    EnvironmentName: "${group.service_name}"
+  description: |
+    Elastic Beanstalk HTTP 4xx request count threshold has been breached.
+    * Environment: __${group.service_name}__
+- name: eb_requests_total
+  comparison_operator: GreaterThanThreshold
+  evaluation_periods: 1
+  metric_name: ApplicationRequestsTotal
+  namespace: AWS/ElasticBeanstalk
+  statistic: Sum
+  period: 60
+  default_threshold: 1000
+  datapoints_to_alarm: 1
+  dashboard_only: true
+  dimensions:
+    EnvironmentName: "${group.service_name}"
+  description: |
+    Elastic Beanstalk total request count metric.
+    * Environment: __${group.service_name}__
+- name: eb_instances_severe
+  comparison_operator: GreaterThanThreshold
+  evaluation_periods: 1
+  metric_name: InstancesSevere
+  namespace: AWS/ElasticBeanstalk
+  statistic: Maximum
+  period: 60
+  default_threshold: 0
+  datapoints_to_alarm: 1
+  dimensions:
+    EnvironmentName: "${group.service_name}"
+  description: |
+    Elastic Beanstalk has one or more instances in Severe health.
+    * Environment: __${group.service_name}__
