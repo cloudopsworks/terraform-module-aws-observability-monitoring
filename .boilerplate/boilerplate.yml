@@ -10,34 +10,41 @@ variables:
     description: "Organization Name"
     type: string
     default: "Organization"
+    confirm: true
   - name: organization_unit
     order: 1
     description: "Organization Unit"
     type: string
     default: "Unit"
+    confirm: true
   - name: environment_name
     order: 2
     description: "Environment Name"
     type: string
     default: "DEV"
+    confirm: true
   - name: environment_type
     order: 3
     description: "Environment Type"
     type: string
     default: "Testing"
+    confirm: true
   - name: hub_spoke
     order: 4
     description: "Hub and Spoke architecture"
     type: bool
     default: false
+    confirm: true
   - name: is_hub
     order: 5
     description: "Is this a hub configuration?"
     type: bool
     default: false
+    confirm: true
   - name: tags
     order: 6
     description: "Tags"
     type: map
     default: {}
+    confirm: true
   # End - Generic Boilerplate Variables Setup
