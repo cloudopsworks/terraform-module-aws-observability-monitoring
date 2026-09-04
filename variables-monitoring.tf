@@ -41,20 +41,35 @@ variable "slo_settings" {
 
 ## Monitoring groups configuration - yaml format
 # monitor_groups:
-#   - service_name: "checkout-helm"                    # (Required) Service or resource name used by monitor presets.
-#     type: eks                                       # (Required) Resource type. Valid legacy values: eks, lambda, apigateway, ec2, alb, elasticbeanstalk, custom.
-#     cluster_name: "eks-main"                       # (Required for eks) EKS cluster name.
-#     namespace: "default"                           # (Required for eks) Kubernetes namespace.
+#   - name: applications                              # (Required) Unique monitor group and fleet dashboard name.
 #     monitors:
-#       - name: "REQUEST LATENCY"                    # (Required) Alarm display name.
-#         target_name: lat_eks_service_requests_apm  # (Required) Built-in monitor preset key.
-#         priority: 2                                # (Required) Alarm priority used in the generated name.
-#         threshold: 80                              # (Optional) Alarm threshold; preset default applies when omitted.
+#       - service_name: "checkout-helm"              # (Required) Service or resource name used by monitor presets.
+#         type: eks                                  # (Required) Resource type. Valid values: eks, lambda, apigateway, ec2, alb, elasticbeanstalk, custom.
+#         cluster_name: "eks-main"                  # (Required for eks) EKS cluster name.
+#         namespace: "default"                      # (Required for eks) Kubernetes namespace.
+#         monitors:
+#           - name: "REQUEST LATENCY"               # (Required) Alarm display name.
+#             target_name: lat_eks_service_requests_apm # (Required) Built-in preset key, or custom for an inline metric.
+#             priority: 2                           # (Required) Alarm priority used in the generated name.
+#             threshold: 80                         # (Optional) Alarm threshold; preset default applies when omitted.
 variable "monitor_groups" {
-  description = "Legacy list of monitoring groups. Kept for backward compatibility."
+  description = "Named monitor groups containing resource monitor definitions; each group is the boundary for an optional fleet dashboard."
   type        = any
   default     = []
   nullable    = false
+
+  validation {
+    condition = try(alltrue([
+      for monitor_group in var.monitor_groups :
+      length(trimspace(monitor_group.name)) > 0 && length(monitor_group.monitors) >= 0
+    ]), false)
+    error_message = "Each monitor_groups entry must have a non-empty name and a monitors list."
+  }
+
+  validation {
+    condition     = try(length(distinct([for monitor_group in var.monitor_groups : monitor_group.name])) == length(var.monitor_groups), false)
+    error_message = "Each monitor_groups name must be unique."
+  }
 }
 
 variable "alarm_targets" {
@@ -266,68 +281,6 @@ variable "services" {
   }
 }
 
-variable "monitor_definitions" {
-  description = "Custom monitor presets keyed by preset name."
-  type = map(object({
-    resource_type        = string
-    signal               = string
-    display_name         = string
-    description_template = optional(string)
-    default_threshold    = optional(number)
-    comparison_operator  = optional(string)
-    evaluation_periods   = optional(number, 1)
-    datapoints_to_alarm  = optional(number, 1)
-    period               = optional(number)
-    statistic            = optional(string)
-    unit                 = optional(string)
-    treat_missing_data   = optional(string, "missing")
-    dashboard_only       = optional(bool, false)
-    prerequisites        = optional(list(string), [])
-    metric = optional(object({
-      namespace   = string
-      metric_name = string
-      dimensions = map(object({
-        value      = optional(string)
-        value_from = optional(string)
-      }))
-      statistic = optional(string)
-      period    = optional(number)
-      unit      = optional(string)
-    }))
-    metric_query = optional(list(object({
-      id          = string
-      expression  = optional(string)
-      label       = optional(string)
-      return_data = optional(bool, true)
-      metric = optional(object({
-        namespace   = string
-        metric_name = string
-        dimensions = map(object({
-          value      = optional(string)
-          value_from = optional(string)
-        }))
-        statistic = string
-        period    = optional(number)
-        unit      = optional(string)
-      }))
-    })), [])
-    slo = optional(object({
-      supported          = optional(bool, false)
-      type               = optional(string)
-      bad_count_preset   = optional(string)
-      total_count_preset = optional(string)
-    }), {})
-    dashboard = optional(object({
-      widget_type = optional(string, "metric")
-      width       = optional(number, 12)
-      height      = optional(number, 6)
-      title       = optional(string)
-    }), {})
-  }))
-  default  = {}
-  nullable = false
-}
-
 variable "resource_profiles" {
   description = "Custom resource profiles keyed by profile name."
   type = map(object({
@@ -357,10 +310,17 @@ variable "resource_profiles" {
   nullable = false
 }
 
+## CloudWatch dashboard generation settings - yaml format
+# dashboards:
+#   enabled: false              # (Optional) Create dashboards. Default: false.
+#   name_prefix: observability  # (Optional) Dashboard name prefix. Default: module system short name.
+#   create_fleet: true          # (Optional) Create one fleet dashboard per monitor group. Default: true.
+#   create_per_service: true    # (Optional) Create one dashboard per monitored service. Default: true.
+#   include_slo_only: true      # (Optional) Include SLO-only services in per-service dashboards. Default: true.
 variable "dashboard_settings" {
-  description = "CloudWatch dashboard generation settings."
+  description = "Opt-in CloudWatch dashboard generation settings; fleet dashboards are scoped to named monitor groups."
   type = object({
-    enabled            = optional(bool, true)
+    enabled            = optional(bool, false)
     name_prefix        = optional(string)
     create_fleet       = optional(bool, true)
     create_per_service = optional(bool, true)

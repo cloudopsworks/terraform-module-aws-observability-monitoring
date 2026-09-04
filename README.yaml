@@ -21,34 +21,38 @@ github_repo: cloudopsworks/terraform-module-aws-observability-monitoring
 description: |-
   AWS observability monitoring module for SRE/DevOps Golden Signals on CloudWatch.
   The module creates CloudWatch alarms, AWS Application Signals SLOs, and generated
-  CloudWatch dashboards from either the legacy `monitor_groups`/`slos` shape or the
-  typed v2 `services` model.
+  CloudWatch dashboards from either the scaffolded `monitor_groups`/`slos` shape or
+  the typed v2 `services` model.
 
   Key capabilities:
 
   - Golden Signals support for latency, traffic, errors/faults, saturation, and health.
-  - Backward-compatible legacy monitor groups and SLO inputs, including Terragrunt
-    `slos` to Terraform `slo_settings` wiring.
+  - Named monitor groups that contain resource monitor definitions and define fleet
+    dashboard boundaries.
   - Typed v2 services for EKS services, Lambda functions, Elastic Beanstalk
     environments, API Gateway stages, EC2 instances, Application Load Balancers,
     and custom CloudWatch resources.
-  - Built-in and extensible monitor preset catalog through `monitor_definitions`.
-  - Generated per-service and fleet CloudWatch dashboards based on configured monitors,
-    alarms, and SLO inventory.
+  - Built-in monitor presets plus inline custom metrics selected with
+    `target_name: custom`.
+  - Opt-in per-service dashboards and one fleet CloudWatch dashboard per named monitor
+    group.
   - Optional SNS and Lambda alarm actions through existing AWS targets.
   - Safe no-notification mode with `alarm_targets: []` or `alarm_targets: null`.
 
 introduction: |-
   This module standardizes AWS operational telemetry around SRE Golden Signals. It is
   designed for platform teams that need consistent observability definitions across many
-  workloads while preserving existing Terragrunt deployments.
+  workloads.
 
-  The legacy model remains supported:
+  The monitor-group model uses a named outer group:
 
-  - `monitor_groups` creates CloudWatch alarms from named presets in
-    `observability-config.yaml`.
-  - `slos` in `inputs.yaml` continues to map to Terraform `slo_settings` through the
-    Terragrunt scaffold template.
+  - Each `monitor_groups` entry has a unique `name` and a `monitors` list containing the
+    previous resource monitor structure.
+  - The group name identifies its fleet dashboard when dashboards are enabled.
+  - `target_name: custom` accepts an inline `metric` or `metric_query` on the monitor;
+    no separate custom-definition map is required.
+  - `slos` in `inputs.yaml` maps to Terraform `slo_settings` through the Terragrunt
+    scaffold template.
   - `alarm_targets: []` disables alarm actions without breaking data source lookups.
 
   The v2 model adds a typed service inventory:
@@ -62,11 +66,12 @@ introduction: |-
   - `services.<key>.resource_type = ec2_instance` for EC2 status, traffic, and CPU metrics.
   - `services.<key>.resource_type = application_load_balancer` for ALB latency,
     errors, traffic, and rejected-connection saturation metrics.
-  - `services.<key>.monitors` configures alarms/dashboard widgets from built-in or
-    custom presets.
+  - `services.<key>.monitors` configures alarms/dashboard widgets from built-in
+    presets or inline custom metrics.
   - `services.<key>.slos` configures service-scoped Golden Signal, operational,
     metric-query, or request-based SLOs.
-  - `dashboard_settings` controls generated fleet and per-service dashboards.
+  - `dashboards` in `inputs.yaml` maps to Terraform `dashboard_settings`; dashboard
+    generation is disabled unless `dashboards.enabled` is explicitly set to `true`.
 
 usage: |-
   ## Terragrunt scaffold workflow
@@ -101,35 +106,37 @@ usage: |-
   #   - type: sns # (Required) Target type. Valid values: sns, lambda.
   #     name: sre-critical-alerts # (Required) Existing SNS topic name or Lambda function name.
 
-  monitor_groups: [] # (Optional) Legacy monitor groups. Default: []; preserved for existing deployments.
+  monitor_groups: [] # (Optional) Named alarm groups and fleet-dashboard boundaries. Default: [].
   # monitor_groups:
-  #   - service_name: checkout-helm # (Required) Service/resource name used in alarm names and dimensions.
-  #     type: eks # (Required) Legacy resource type. Valid values: eks, lambda, apigateway, elasticbeanstalk, custom.
-  #     cluster_name: eks-prod-use1 # (Required for eks) EKS cluster name.
-  #     namespace: checkout-prod # (Required for eks) Kubernetes namespace.
-  #     monitors:
-  #       - name: REQUEST LATENCY # (Required) Alarm label.
-  #         target_name: lat_eks_service_requests_apm # (Required) Built-in or custom monitor preset key.
-  #         priority: 2 # (Required) Alarm priority used in generated names.
-  #         threshold: 100 # (Optional) Override preset threshold.
+  #   - name: applications # (Required) Unique monitor group name.
+  #     monitors: # (Required) Resources monitored as part of this group.
+  #       - service_name: checkout-helm # (Required) Service/resource name used in alarm names and dimensions.
+  #         type: eks # (Required) Resource type. Valid values: eks, lambda, apigateway, ec2, alb, elasticbeanstalk, custom.
+  #         cluster_name: eks-prod-use1 # (Required for eks) EKS cluster name.
+  #         namespace: checkout-prod # (Required for eks) Kubernetes namespace.
+  #         monitors:
+  #           - name: REQUEST LATENCY # (Required) Alarm label.
+  #             target_name: lat_eks_service_requests_apm # (Required) Built-in preset key, or custom for an inline metric.
+  #             priority: 2 # (Required) Alarm priority used in generated names.
+  #             threshold: 100 # (Optional) Override preset threshold.
 
-  slo_settings: {} # (Optional) Legacy SLO settings. Default: {}; equivalent Terragrunt legacy key: slos.
-  # slos: {} # (Optional) Backward-compatible Terragrunt alias for slo_settings.
+  slos: {} # (Optional) SLO settings passed to the Terraform slo_settings input. Default: {}.
 
   services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and dashboards. Default: {}.
 
-  monitor_definitions: {} # (Optional) Custom monitor presets keyed by preset name. Default: {}.
-
   resource_profiles: {} # (Optional) Custom resource profile definitions. Default: {}.
 
-  dashboard_settings: {} # (Optional) CloudWatch dashboard generation settings. Default: enabled.
+  dashboards: {} # (Optional) CloudWatch dashboard settings passed to Terraform. Default: disabled.
+  # dashboards:
+  #   enabled: false # (Optional) Create dashboards. Default: false.
+  #   create_fleet: true # (Optional) Create one fleet dashboard per monitor group. Default: true.
   ```
 
   ## Generated `terragrunt.hcl` shape
 
   The scaffolded Terragrunt file loads `inputs.yaml` into `local.local_vars` and maps
-  each module variable. The SLO mapping intentionally supports both the new
-  `slo_settings` key and the current legacy `slos` key.
+  each module variable. The monitor-group mapping also accepts the shorter `groups` alias,
+  while scaffolded inputs use `monitor_groups`.
 
   ```hcl
   locals {
@@ -155,7 +162,7 @@ usage: |-
   }
 
   include "root" {
-    path = find_in_parent_folders("root.hcl")
+    path = find_in_parent_folders("<root-file>")
   }
 
   terraform {
@@ -165,14 +172,13 @@ usage: |-
   inputs = {
     org            = local.env_vars.org
     is_hub         = false
-    spoke_def      = local.spoke_vars.spoke_def
+    spoke_def      = local.spoke_vars.spoke
     alarm_targets  = try(local.local_vars.alarm_targets, [])
-    monitor_groups = try(local.local_vars.monitor_groups, [])
-    slo_settings   = try(local.local_vars.slo_settings, try(local.local_vars.slos, {}))
+    monitor_groups = try(local.local_vars.monitor_groups, local.local_vars.groups, [])
+    slo_settings   = try(local.local_vars.slo_settings, local.local_vars.slos, {})
     services       = try(local.local_vars.services, {})
-    monitor_definitions = try(local.local_vars.monitor_definitions, {})
     resource_profiles   = try(local.local_vars.resource_profiles, {})
-    dashboard_settings  = try(local.local_vars.dashboard_settings, {})
+    dashboard_settings  = try(local.local_vars.dashboard_settings, local.local_vars.dashboards, {})
     extra_tags     = local.tags
   }
   ```
@@ -216,44 +222,46 @@ usage: |-
   | `eb_instances_severe` | Elastic Beanstalk | Instance health |
 
 examples: |-
-  ## Backward-compatible EKS/Lambda configuration
+  ## Named EKS/Lambda monitor group
 
-  Existing deployments can keep the current shape. This is compatible with live
-  Terragrunt inputs where `slos` is mapped to Terraform `slo_settings`.
+  The outer group is the boundary for the optional fleet dashboard. Its `monitors`
+  list contains the resource definitions used by alarms.
 
   ```yaml
   alarm_targets: []
 
   monitor_groups:
-    - service_name: checkout-helm
-      type: eks
-      cluster_name: eks-nexus-main-prod-003-usea1
-      namespace: checkout-prod
+    - name: applications
       monitors:
-        - name: REQUEST LATENCY
-          target_name: lat_eks_service_requests_apm
-          priority: 2
-          threshold: 80
-        - name: REQUEST ERROR RATE
-          target_name: err_eks_service_requests_apm
-          priority: 1
-          threshold: 10
-        - name: CPU USAGE
-          target_name: sat_eks_container_cpu_utilization
-          priority: 3
-          threshold: 85
+        - service_name: checkout-helm
+          type: eks
+          cluster_name: eks-nexus-main-prod-003-usea1
+          namespace: checkout-prod
+          monitors:
+            - name: REQUEST LATENCY
+              target_name: lat_eks_service_requests_apm
+              priority: 2
+              threshold: 80
+            - name: REQUEST ERROR RATE
+              target_name: err_eks_service_requests_apm
+              priority: 1
+              threshold: 10
+            - name: CPU USAGE
+              target_name: sat_eks_container_cpu_utilization
+              priority: 3
+              threshold: 85
 
-    - service_name: auth-lambda-prod
-      type: lambda
-      monitors:
-        - name: REQUEST LATENCY
-          target_name: lat_lambda_service_requests_apm
-          priority: 2
-          threshold: 10000
-        - name: REQUEST COUNT
-          target_name: trf_lambda_service_requests_apm
-          priority: 3
-          threshold: 200
+        - service_name: auth-lambda-prod
+          type: lambda
+          monitors:
+            - name: REQUEST LATENCY
+              target_name: lat_lambda_service_requests_apm
+              priority: 2
+              threshold: 10000
+            - name: REQUEST COUNT
+              target_name: trf_lambda_service_requests_apm
+              priority: 3
+              threshold: 200
 
   slos:
     service_level_objectives:
@@ -274,6 +282,11 @@ examples: |-
           attainment: 99.9
           duration: 5
           duration_unit: DAY
+
+  dashboards:
+    enabled: true
+    create_fleet: true
+    create_per_service: false
   ```
 
   ## v2 EKS service with dashboards and Golden Signals SLOs
@@ -336,9 +349,9 @@ examples: |-
             type: text
             markdown: "Runbook: https://runbooks.example.com/checkout"
 
-  dashboard_settings:
+  dashboards:
     enabled: true
-    create_fleet: true
+    create_fleet: false
     create_per_service: true
     include_slo_only: true
     widgets_per_row: 2
@@ -496,37 +509,28 @@ examples: |-
   ## Extending with a custom CloudWatch metric
 
   ```yaml
-  monitor_definitions:
-    sqs_queue_depth:
-      resource_type: custom
-      signal: saturation
-      display_name: Queue Depth
-      description_template: Queue depth for ${group.service_name} is high
-      comparison_operator: GreaterThanThreshold
-      default_threshold: 100
-      evaluation_periods: 1
-      datapoints_to_alarm: 1
-      period: 60
-      statistic: Average
-      metric:
-        namespace: AWS/SQS
-        metric_name: ApproximateNumberOfMessagesVisible
-        dimensions:
-          QueueName:
-            value_from: ${group.service_name}
-
-  services:
-    payments-queue:
-      resource_type: custom
-      resource:
-        dimensions:
-          QueueName: payments-prod
+  monitor_groups:
+    - name: payments
       monitors:
-        queue_depth:
-          preset: sqs_queue_depth
-          name: QUEUE DEPTH
-          priority: 2
-          threshold: 500
+        - service_name: payments-prod
+          type: custom
+          monitors:
+            - name: QUEUE DEPTH
+              target_name: custom
+              priority: 2
+              threshold: 500
+              comparison_operator: GreaterThanThreshold
+              evaluation_periods: 1
+              datapoints_to_alarm: 1
+              treat_missing_data: notBreaching
+              metric:
+                namespace: AWS/SQS
+                metric_name: ApproximateNumberOfMessagesVisible
+                dimensions:
+                  QueueName: payments-prod
+                statistic: Average
+                period: 60
+                unit: Count
   ```
 
 quickstart: |-
@@ -538,7 +542,7 @@ quickstart: |-
      terragrunt scaffold github.com/cloudopsworks/terraform-module-aws-observability-monitoring
      ```
 
-  2. Edit `inputs.yaml` using either the legacy `monitor_groups`/`slos` shape or the
+  2. Edit `inputs.yaml` using either the named `monitor_groups`/`slos` shape or the
      v2 `services` shape.
 
   3. Configure existing notification targets if alarms should notify operators:

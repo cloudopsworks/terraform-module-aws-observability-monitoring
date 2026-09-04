@@ -59,12 +59,19 @@ resource "aws_cloudwatch_metric_alarm" "monitor" {
     }
   }
 
-  tags = merge(local.all_tags, try(each.value.group.tags, {}), {
-    "alarm-priority"       = tostring(each.value.monitor.priority)
-    "observability-config" = each.value.config.name
-    "service-name"         = each.value.group.service_name
-    "service-key"          = each.value.service_key
-  })
+  tags = merge(
+    local.all_tags,
+    try(each.value.group.tags, {}),
+    {
+      "alarm-priority"       = tostring(each.value.monitor.priority)
+      "observability-config" = each.value.config.name
+      "service-name"         = each.value.group.service_name
+      "service-key"          = each.value.service_key
+    },
+    each.value.monitor_group_name != null ? {
+      "monitor-group" = each.value.monitor_group_name
+    } : {}
+  )
 
   lifecycle {
     precondition {

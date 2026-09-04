@@ -14,42 +14,7 @@ locals {
   config_map = {
     for conf in local.configs : conf.name => conf
   }
-  custom_monitor_definition_map = {
-    for name, conf in var.monitor_definitions : name => jsondecode(jsonencode(merge(conf,
-      try(conf.metric, null) != null ? {
-        namespace   = conf.metric.namespace
-        metric_name = conf.metric.metric_name
-        statistic   = try(conf.metric.statistic, null)
-        period      = try(conf.metric.period, null)
-        unit        = try(conf.metric.unit, null)
-        dimensions = {
-          for dim_key, dim_value in try(conf.metric.dimensions, {}) :
-          dim_key => coalesce(try(dim_value.value, null), try(dim_value.value_from, null), "")
-        }
-      } : {},
-      length(try(conf.metric_query, [])) > 0 ? {
-        metric_query = {
-          for query in conf.metric_query : query.id => {
-            expression  = try(query.expression, null)
-            label       = try(query.label, null)
-            return_data = try(query.return_data, true)
-            metric = try(query.metric, null) != null ? {
-              namespace   = query.metric.namespace
-              metric_name = query.metric.metric_name
-              statistic   = query.metric.statistic
-              period      = try(query.metric.period, null)
-              unit        = try(query.metric.unit, null)
-              dimensions = {
-                for dim_key, dim_value in try(query.metric.dimensions, {}) :
-                dim_key => coalesce(try(dim_value.value, null), try(dim_value.value_from, null), "")
-              }
-            } : null
-          }
-        }
-      } : {}
-    )))
-  }
-  monitor_definition_map = merge(local.config_map, local.custom_monitor_definition_map)
+  monitor_definition_map = local.config_map
 
   allowed_catalog_placeholders = toset([
     "$${group.service_name}",
@@ -76,6 +41,14 @@ locals {
     custom                       = "custom"
   }
 
+  monitor_group_resources = flatten([
+    for monitor_group in var.monitor_groups : [
+      for resource in monitor_group.monitors : merge(resource, {
+        monitor_group_name = monitor_group.name
+      })
+    ]
+  ])
+
   v2_monitor_groups = [
     for service_key, service in var.services : {
       service_key = service_key
@@ -88,18 +61,19 @@ locals {
         try(service.resource.load_balancer.arn_suffix, null),
         service_key
       )
-      display_name      = coalesce(try(service.display_name, null), service_key)
-      type              = local.service_resource_type[service.resource_type]
-      resource_type     = service.resource_type
-      cluster_name      = service.resource_type == "eks_service" ? service.resource.eks.cluster_name : null
-      namespace         = service.resource_type == "eks_service" ? service.resource.eks.namespace : null
-      function_name     = service.resource_type == "lambda_function" ? service.resource.lambda.function_name : null
-      application_name  = service.resource_type == "elasticbeanstalk_environment" ? service.resource.elasticbeanstalk.application_name : null
-      environment_name  = service.resource_type == "elasticbeanstalk_environment" ? service.resource.elasticbeanstalk.environment_name : null
-      published_metrics = service.resource_type == "elasticbeanstalk_environment" ? service.resource.elasticbeanstalk.published_metrics : []
-      stage             = service.resource_type == "api_gateway" ? service.resource.api_gateway.stage : null
-      account_id        = try(service.resource.account_id, null)
-      region            = try(service.resource.region, null)
+      display_name       = coalesce(try(service.display_name, null), service_key)
+      monitor_group_name = null
+      type               = local.service_resource_type[service.resource_type]
+      resource_type      = service.resource_type
+      cluster_name       = service.resource_type == "eks_service" ? service.resource.eks.cluster_name : null
+      namespace          = service.resource_type == "eks_service" ? service.resource.eks.namespace : null
+      function_name      = service.resource_type == "lambda_function" ? service.resource.lambda.function_name : null
+      application_name   = service.resource_type == "elasticbeanstalk_environment" ? service.resource.elasticbeanstalk.application_name : null
+      environment_name   = service.resource_type == "elasticbeanstalk_environment" ? service.resource.elasticbeanstalk.environment_name : null
+      published_metrics  = service.resource_type == "elasticbeanstalk_environment" ? service.resource.elasticbeanstalk.published_metrics : []
+      stage              = service.resource_type == "api_gateway" ? service.resource.api_gateway.stage : null
+      account_id         = try(service.resource.account_id, null)
+      region             = try(service.resource.region, null)
       canonical_key = coalesce(
         try(format("eks:%s/%s/%s", service.resource.eks.cluster_name, service.resource.eks.namespace, service.resource.eks.service_name), null),
         try(format("lambda:%s", service.resource.lambda.function_name), null),
@@ -136,7 +110,7 @@ locals {
     if try(service.enabled, true)
   ]
 
-  monitor_groups_input = concat(var.monitor_groups, local.v2_monitor_groups)
+  monitor_groups_input = concat(local.monitor_group_resources, local.v2_monitor_groups)
 
   service_inventory_from_monitors = {
     for group in local.monitor_groups_input : try(group.canonical_key,
@@ -188,20 +162,25 @@ locals {
           try(group.type, "") == "alb" ? format("alb:%s", group.service_name) :
           format("%s:%s", try(group.type, "custom"), group.service_name)
         )
-        monitor_key    = try(monitor.key, monitor.target_name)
-        dashboard_only = coalesce(try(monitor.dashboard_only, null), try(local.monitor_definition_map[monitor.target_name].dashboard_only, null), false)
-        group          = group
-        monitor        = monitor
-        config = merge(local.monitor_definition_map[monitor.target_name], try(monitor.metric, null) != null ? {
-          namespace   = monitor.metric.namespace
-          metric_name = monitor.metric.metric_name
-          statistic   = try(monitor.metric.statistic, try(monitor.statistic, null))
-          period      = try(monitor.metric.period, try(monitor.period, null))
-          unit        = try(monitor.metric.unit, try(monitor.unit, null))
-          dimensions  = try(monitor.metric.dimensions, {})
-          } : {}, length(try(monitor.metric_query, [])) > 0 ? {
-          metric_query = { for query in monitor.metric_query : query.id => query }
-        } : {})
+        monitor_key        = try(monitor.key, monitor.target_name)
+        monitor_group_name = try(group.monitor_group_name, null)
+        dashboard_only     = coalesce(try(monitor.dashboard_only, null), try(local.monitor_definition_map[monitor.target_name].dashboard_only, null), false)
+        group              = group
+        monitor            = monitor
+        config = merge(
+          local.monitor_definition_map[monitor.target_name],
+          try({
+            namespace   = monitor.metric.namespace
+            metric_name = monitor.metric.metric_name
+            statistic   = try(monitor.metric.statistic, try(monitor.statistic, null))
+            period      = try(monitor.metric.period, try(monitor.period, null))
+            unit        = try(monitor.metric.unit, try(monitor.unit, null))
+            dimensions  = try(monitor.metric.dimensions, {})
+          }, {}),
+          length(try(monitor.metric_query, [])) > 0 ? {
+            metric_query = { for query in monitor.metric_query : query.id => query }
+          } : {}
+        )
         rendered_description = replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(try(coalesce(try(monitor.description_override, null), try(local.monitor_definition_map[monitor.target_name].description, null), try(local.monitor_definition_map[monitor.target_name].description_template, null)), ""), "$${group.service_name}", (try(group.service_name, null) != null ? tostring(group.service_name) : "")), "$${group.cluster_name}", (try(group.cluster_name, null) != null ? tostring(group.cluster_name) : "")), "$${group.namespace}", (try(group.namespace, null) != null ? tostring(group.namespace) : "")), "$${group.stage}", (try(group.stage, null) != null ? tostring(group.stage) : "")), "$${try(monitor.threshold, 5)}", (try(monitor.threshold, null) != null ? tostring(monitor.threshold) : "5")), "$${try(monitor.threshold, 10)}", (try(monitor.threshold, null) != null ? tostring(monitor.threshold) : "10")), "$${try(monitor.threshold, 20)}", (try(monitor.threshold, null) != null ? tostring(monitor.threshold) : "20")), "$${try(monitor.threshold, 80)}", (try(monitor.threshold, null) != null ? tostring(monitor.threshold) : "80")), "$${try(monitor.threshold, 100)}", (try(monitor.threshold, null) != null ? tostring(monitor.threshold) : "100")), "$${try(monitor.threshold, 1000)}", (try(monitor.threshold, null) != null ? tostring(monitor.threshold) : "1000"))
         rendered_dimensions = {
           for dim_key, dim_template in try(merge(local.monitor_definition_map[monitor.target_name], try(monitor.metric, null) != null ? { dimensions = monitor.metric.dimensions } : {}).dimensions, {}) :

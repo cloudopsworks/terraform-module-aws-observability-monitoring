@@ -175,34 +175,39 @@ locals {
     ]
   }
 
-  fleet_alarm_arns = flatten([
-    for service_key, alarms in local.alarm_arns_by_service : values(alarms)
-  ])
+  fleet_alarm_arns = {
+    for monitor_group in var.monitor_groups : monitor_group.name => [
+      for alarm_key, alarm in aws_cloudwatch_metric_alarm.monitor : alarm.arn
+      if local.groups_map[alarm_key].monitor_group_name == monitor_group.name
+    ]
+  }
 
-  fleet_widgets = concat([
-    {
-      type   = "text"
-      x      = 0
-      y      = 0
-      width  = 24
-      height = 3
-      properties = {
-        markdown = format("# %s observability fleet", local.dashboard_name_prefix)
+  fleet_widgets = {
+    for monitor_group_name, alarm_arns in local.fleet_alarm_arns : monitor_group_name => concat([
+      {
+        type   = "text"
+        x      = 0
+        y      = 0
+        width  = 24
+        height = 3
+        properties = {
+          markdown = format("# %s observability fleet", monitor_group_name)
+        }
       }
-    }
-    ], length(local.fleet_alarm_arns) > 0 ? [
-    {
-      type   = "alarm"
-      x      = 0
-      y      = 3
-      width  = 24
-      height = 6
-      properties = {
-        title  = "Fleet alarm status"
-        alarms = slice(local.fleet_alarm_arns, 0, min(length(local.fleet_alarm_arns), 100))
+      ], length(alarm_arns) > 0 ? [
+      {
+        type   = "alarm"
+        x      = 0
+        y      = 3
+        width  = 24
+        height = 6
+        properties = {
+          title  = "Fleet alarm status"
+          alarms = slice(alarm_arns, 0, min(length(alarm_arns), 100))
+        }
       }
-    }
-  ] : [])
+    ] : [])
+  }
 }
 
 resource "aws_cloudwatch_dashboard" "service" {
@@ -227,11 +232,11 @@ resource "aws_cloudwatch_dashboard" "service" {
 
 resource "aws_cloudwatch_dashboard" "fleet" {
   for_each = {
-    for dashboard_key in ["fleet"] : dashboard_key => local.fleet_widgets
+    for monitor_group_name, widgets in local.fleet_widgets : monitor_group_name => widgets
     if var.dashboard_settings.enabled && var.dashboard_settings.create_fleet
   }
 
-  dashboard_name = substr(format("%s-fleet", local.dashboard_name_prefix), 0, 255)
+  dashboard_name = substr(replace(replace(replace(format("%s-%s-fleet", local.dashboard_name_prefix, each.key), ":", "-"), "/", "-"), " ", "-"), 0, 255)
   dashboard_body = jsonencode({
     start   = var.dashboard_settings.start
     widgets = each.value
@@ -239,8 +244,8 @@ resource "aws_cloudwatch_dashboard" "fleet" {
 
   lifecycle {
     precondition {
-      condition     = length(each.value) <= 500 && length(local.fleet_alarm_arns) <= 100
-      error_message = "CloudWatch fleet dashboard exceeds supported widget or alarm-widget limits."
+      condition     = length(each.value) <= 500 && length(local.fleet_alarm_arns[each.key]) <= 100
+      error_message = "CloudWatch fleet dashboard ${each.key} exceeds supported widget or alarm-widget limits."
     }
   }
 }

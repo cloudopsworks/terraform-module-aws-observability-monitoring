@@ -116,3 +116,62 @@ run "aws_infrastructure_golden_signals" {
     error_message = "API Gateway metric-query SLOs must render the Stage dimension."
   }
 }
+
+run "legacy_inline_custom_monitor" {
+  command = plan
+
+  variables {
+    org = {
+      organization_name = "Cloud Ops Works"
+      organization_unit = "Platform"
+      environment_type  = "production"
+      environment_name  = "prod"
+    }
+    monitor_groups = yamldecode(file("tests/fixtures/custom-monitor-inputs.yaml")).monitor_groups
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.monitor["[P2] [platform] [prod] [payments-prod] QUEUE DEPTH - custom - production"].metric_name == "ApproximateNumberOfMessagesVisible"
+    error_message = "A custom monitor must accept its metric definition inline."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.monitor["[P2] [platform] [prod] [payments-prod] QUEUE DEPTH - custom - production"].dimensions.QueueName == "payments-prod"
+    error_message = "A custom monitor must preserve inline metric dimensions."
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_dashboard.service) == 0 && length(aws_cloudwatch_dashboard.fleet) == 0
+    error_message = "Dashboards must be disabled by default."
+  }
+}
+
+run "named_monitor_group_fleet_dashboard" {
+  command = plan
+
+  variables {
+    org = {
+      organization_name = "Cloud Ops Works"
+      organization_unit = "Platform"
+      environment_type  = "production"
+      environment_name  = "prod"
+    }
+    monitor_groups = yamldecode(file("tests/fixtures/custom-monitor-inputs.yaml")).monitor_groups
+    dashboard_settings = {
+      enabled            = true
+      name_prefix        = "observability"
+      create_fleet       = true
+      create_per_service = false
+    }
+  }
+
+  assert {
+    condition     = keys(aws_cloudwatch_dashboard.fleet) == ["payments"]
+    error_message = "Each named monitor group must own its fleet dashboard."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_dashboard.fleet["payments"].dashboard_name == "observability-payments-fleet"
+    error_message = "The fleet dashboard name must include its monitor group name."
+  }
+}
