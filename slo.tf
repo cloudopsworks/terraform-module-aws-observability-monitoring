@@ -337,8 +337,11 @@ locals {
                   metric_name = local.monitor_definition_map[slo.preset].metric_name
                   dimensions = [
                     for dim_name, dim_value in try(local.monitor_definition_map[slo.preset].dimensions, {}) : {
-                      name  = dim_name
-                      value = replace(tostring(dim_value), "$${group.service_name}", slo.service_level_indicator.name)
+                      name = dim_name
+                      value = replace(
+                        replace(tostring(dim_value), "$${group.service_name}", slo.service_level_indicator.name),
+                        "$${group.stage}", try(slo.service_level_indicator.stage, "")
+                      )
                     }
                   ]
                 }

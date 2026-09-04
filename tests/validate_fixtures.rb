@@ -78,13 +78,61 @@ assert(alarm_names(nexus) == EXPECTED_ALARMS, "Nexus legacy alarm names changed"
 assert(slo_names(nexus) == EXPECTED_SLOS, "Nexus legacy SLO names changed")
 assert(nexus.fetch("alarm_targets") == [], "Nexus fixture must keep alarm_targets empty")
 
-config_names = YAML.load_file(File.join(ROOT, "observability-config.yaml")).map { |entry| entry.fetch("name") }
+config = YAML.load_file(File.join(ROOT, "observability-config.yaml"))
+config_by_name = config.to_h { |entry| [entry.fetch("name"), entry] }
+config_names = config_by_name.keys
 nexus.fetch("monitor_groups").flat_map { |group| group.fetch("monitors") }.each do |monitor|
   assert(config_names.include?(monitor.fetch("target_name")), "Missing monitor preset #{monitor.fetch("target_name")}")
 end
 
 %w[eb_environment_health eb_latency_p99 eb_5xx_count eb_requests_total eb_instances_severe sat_lambda_concurrent_executions].each do |preset|
   assert(config_names.include?(preset), "Missing new monitor preset #{preset}")
+end
+
+golden_signals = YAML.load_file(File.join(FIXTURES, "aws-golden-signals-v2-inputs.yaml")).fetch("services")
+expected_services = {
+  "orders-api" => {
+    "resource_type" => "api_gateway",
+    "service_name" => "orders-api",
+    "stage" => "prod",
+    "dimensions" => { "ApiName" => "orders-api", "Stage" => "prod" }
+  },
+  "batch-worker" => {
+    "resource_type" => "ec2_instance",
+    "service_name" => "i-0123456789abcdef0",
+    "dimensions" => { "InstanceId" => "i-0123456789abcdef0" }
+  },
+  "public-alb" => {
+    "resource_type" => "application_load_balancer",
+    "service_name" => "app/public-alb/50dc6c495c0c9188",
+    "dimensions" => { "LoadBalancer" => "app/public-alb/50dc6c495c0c9188" }
+  }
+}.freeze
+
+expected_services.each do |service_key, expected|
+  service = golden_signals.fetch(service_key)
+  assert(service.fetch("resource_type") == expected.fetch("resource_type"), "#{service_key} resource_type mismatch")
+
+  service.fetch("monitors").each_value do |monitor|
+    preset = monitor.fetch("preset")
+    assert(config_names.include?(preset), "Missing Golden Signal monitor preset #{preset}")
+
+    dimensions = config_by_name.fetch(preset).fetch("dimensions").transform_values do |value|
+      value
+        .gsub("${group.service_name}", expected.fetch("service_name"))
+        .gsub("${group.stage}", expected.fetch("stage", ""))
+    end
+    assert(dimensions == expected.fetch("dimensions"), "#{preset} dimensions do not match #{service_key}")
+  end
+
+  service.fetch("slos").each_value do |slo|
+    assert(slo.fetch("type") == "metric-query", "#{service_key} infrastructure SLO must use metric-query")
+    assert(config_names.include?(slo.fetch("preset")), "Missing SLO preset #{slo.fetch('preset')}")
+  end
+end
+
+%w[trf_ec2_network_in trf_ec2_network_out trf_alb_requests].each do |preset|
+  assert(config_by_name.fetch(preset).fetch("dashboard_only") == true, "#{preset} should default to dashboard-only")
 end
 
 eks = YAML.load_file(File.join(FIXTURES, "eks-v2-inputs.yaml"))

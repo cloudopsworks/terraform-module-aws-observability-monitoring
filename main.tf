@@ -8,19 +8,26 @@
 #
 
 resource "aws_cloudwatch_metric_alarm" "monitor" {
-  for_each                              = local.groups_map
-  alarm_name                            = each.value.monitor_name
-  alarm_description                     = each.value.rendered_description
-  comparison_operator                   = coalesce(try(each.value.monitor.comparison_operator, null), each.value.config.comparison_operator)
-  evaluation_periods                    = coalesce(try(each.value.monitor.evaluation_periods, null), each.value.config.evaluation_periods)
-  datapoints_to_alarm                   = coalesce(try(each.value.monitor.datapoints_to_alarm, null), each.value.config.datapoints_to_alarm)
-  period                                = length(try(each.value.rendered_metric_query, {})) == 0 ? coalesce(try(each.value.monitor.period, null), try(each.value.config.period, null)) : null
-  metric_name                           = try(each.value.config.metric_name, null)
-  statistic                             = coalesce(try(each.value.monitor.statistic, null), try(each.value.config.statistic, null))
+  for_each            = local.groups_map
+  alarm_name          = each.value.monitor_name
+  alarm_description   = each.value.rendered_description
+  comparison_operator = coalesce(try(each.value.monitor.comparison_operator, null), each.value.config.comparison_operator)
+  evaluation_periods  = coalesce(try(each.value.monitor.evaluation_periods, null), each.value.config.evaluation_periods)
+  datapoints_to_alarm = coalesce(try(each.value.monitor.datapoints_to_alarm, null), each.value.config.datapoints_to_alarm)
+  period              = length(try(each.value.rendered_metric_query, {})) == 0 ? coalesce(try(each.value.monitor.period, null), try(each.value.config.period, null)) : null
+  metric_name         = try(each.value.config.metric_name, null)
+  statistic = length(try(each.value.rendered_metric_query, {})) == 0 ? try(
+    startswith(lower(coalesce(try(each.value.monitor.statistic, null), try(each.value.config.statistic, null))), "p") ? null : coalesce(try(each.value.monitor.statistic, null), try(each.value.config.statistic, null)),
+    null
+  ) : null
+  extended_statistic = length(try(each.value.rendered_metric_query, {})) == 0 ? try(
+    startswith(lower(coalesce(try(each.value.monitor.statistic, null), try(each.value.config.statistic, null))), "p") ? coalesce(try(each.value.monitor.statistic, null), try(each.value.config.statistic, null)) : null,
+    null
+  ) : null
   namespace                             = try(each.value.config.namespace, null)
   threshold                             = coalesce(try(each.value.monitor.threshold, null), try(each.value.config.default_threshold, null))
   threshold_metric_id                   = try(each.value.config.threshold_metric_id, null)
-  unit                                  = coalesce(try(each.value.monitor.unit, null), try(each.value.config.unit, null))
+  unit                                  = length(try(each.value.rendered_metric_query, {})) == 0 ? try(coalesce(try(each.value.monitor.unit, null), try(each.value.config.unit, null)), null) : null
   treat_missing_data                    = coalesce(try(each.value.monitor.treat_missing_data, null), try(each.value.config.treat_missing_data, null), "missing")
   evaluate_low_sample_count_percentiles = try(each.value.config.evaluate_low_sample, null)
   actions_enabled                       = (length(local.alarm_actions) + length(local.ok_actions)) > 0
@@ -45,7 +52,7 @@ resource "aws_cloudwatch_metric_alarm" "monitor" {
           namespace   = metric.value.namespace
           period      = coalesce(try(each.value.monitor.period, null), try(metric.value.period, null))
           stat        = coalesce(try(each.value.monitor.statistic, null), metric.value.statistic)
-          unit        = coalesce(try(each.value.monitor.unit, null), try(metric.value.unit, null))
+          unit        = try(coalesce(try(each.value.monitor.unit, null), try(metric.value.unit, null)), null)
           dimensions  = length(try(metric.value.dimensions, {})) > 0 ? metric.value.dimensions : null
         }
       }

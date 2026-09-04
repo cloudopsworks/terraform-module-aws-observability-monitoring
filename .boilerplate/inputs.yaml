@@ -71,7 +71,7 @@ services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and das
 #   checkout: # (Required) Stable service key used for dashboards and cross-resource grouping.
 #     enabled: true # (Optional) Whether this service is managed. Default: true.
 #     display_name: Checkout API # (Optional) Display name for dashboards. Default: service key.
-#     resource_type: eks_service # (Required) Valid values: eks_service, lambda_function, elasticbeanstalk_environment, custom.
+#     resource_type: eks_service # (Required) Valid values: eks_service, lambda_function, elasticbeanstalk_environment, api_gateway, ec2_instance, application_load_balancer, custom.
 #     profile: eks-appsignals # (Optional) Custom resource profile key. Default: built-in behavior.
 #     resource: # (Required) Exactly one identity block must match resource_type.
 #       account_id: "123456789012" # (Optional) Metric account ID for cross-account SLO/alarm queries. Default: provider account.
@@ -94,6 +94,13 @@ services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and das
 #           - ApplicationLatencyP99
 #           - ApplicationRequests5xx
 #           - ApplicationRequestsTotal
+#       api_gateway: # (Required for api_gateway) API Gateway REST API stage identity.
+#         api_name: orders-api # (Required) REST API name used by the ApiName CloudWatch dimension.
+#         stage: prod # (Required) Deployed API Gateway stage used by the Stage CloudWatch dimension.
+#       ec2: # (Required for ec2_instance) EC2 instance identity.
+#         instance_id: i-0123456789abcdef0 # (Required) EC2 instance ID used by the InstanceId CloudWatch dimension.
+#       load_balancer: # (Required for application_load_balancer) Application Load Balancer identity.
+#         arn_suffix: app/public-alb/50dc6c495c0c9188 # (Required) Final ARN portion used by the LoadBalancer CloudWatch dimension.
 #       app_signals: # (Optional) Application Signals override for SLOs. Default: enabled.
 #         enabled: true # (Optional) Whether Application Signals identities are used. Default: true.
 #         environment: eks:eks-prod-use1/checkout-prod # (Optional) Override Application Signals Environment value.
@@ -113,7 +120,7 @@ services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and das
 #         statistic: p99 # (Optional) Override statistic. Default: preset-specific.
 #         unit: Milliseconds # (Optional) CloudWatch unit. Default: preset-specific.
 #         treat_missing_data: missing # (Optional) Missing-data treatment. Default: preset-specific or missing.
-#         dashboard_only: false # (Optional) Render widget only without creating alarm. Default: false.
+#         dashboard_only: false # (Optional) Render widget only without creating alarm. Default: inherited from preset, otherwise false.
 #         allow_missing_metrics: false # (Optional) Documentation guard for metrics not always published. Default: false.
 #         override: false # (Optional) Indicates custom metric fields replace preset values. Default: false.
 #         name_override: "[P2] [ops] [prod] [checkout] REQUEST LATENCY - eks - production" # (Optional) Full alarm name override.

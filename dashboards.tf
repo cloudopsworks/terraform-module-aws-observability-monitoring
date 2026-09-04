@@ -206,7 +206,10 @@ locals {
 }
 
 resource "aws_cloudwatch_dashboard" "service" {
-  for_each = var.dashboard_settings.enabled && var.dashboard_settings.create_per_service ? local.dashboard_widgets : {}
+  for_each = {
+    for service_key, widgets in local.dashboard_widgets : service_key => widgets
+    if var.dashboard_settings.enabled && var.dashboard_settings.create_per_service
+  }
 
   dashboard_name = substr(replace(replace(format("%s-%s", local.dashboard_name_prefix, each.key), ":", "-"), "/", "-"), 0, 255)
   dashboard_body = jsonencode({
@@ -223,7 +226,10 @@ resource "aws_cloudwatch_dashboard" "service" {
 }
 
 resource "aws_cloudwatch_dashboard" "fleet" {
-  for_each = var.dashboard_settings.enabled && var.dashboard_settings.create_fleet ? { fleet = local.fleet_widgets } : {}
+  for_each = {
+    for dashboard_key in ["fleet"] : dashboard_key => local.fleet_widgets
+    if var.dashboard_settings.enabled && var.dashboard_settings.create_fleet
+  }
 
   dashboard_name = substr(format("%s-fleet", local.dashboard_name_prefix), 0, 255)
   dashboard_body = jsonencode({

@@ -70,13 +70,24 @@ locals {
     eks_service                  = "eks"
     lambda_function              = "lambda"
     elasticbeanstalk_environment = "elasticbeanstalk"
+    api_gateway                  = "apigateway"
+    ec2_instance                 = "ec2"
+    application_load_balancer    = "alb"
     custom                       = "custom"
   }
 
   v2_monitor_groups = [
     for service_key, service in var.services : {
-      service_key       = service_key
-      service_name      = service.resource_type == "eks_service" ? service.resource.eks.service_name : service.resource_type == "lambda_function" ? service.resource.lambda.function_name : service.resource_type == "elasticbeanstalk_environment" ? service.resource.elasticbeanstalk.environment_name : service_key
+      service_key = service_key
+      service_name = coalesce(
+        try(service.resource.eks.service_name, null),
+        try(service.resource.lambda.function_name, null),
+        try(service.resource.elasticbeanstalk.environment_name, null),
+        try(service.resource.api_gateway.api_name, null),
+        try(service.resource.ec2.instance_id, null),
+        try(service.resource.load_balancer.arn_suffix, null),
+        service_key
+      )
       display_name      = coalesce(try(service.display_name, null), service_key)
       type              = local.service_resource_type[service.resource_type]
       resource_type     = service.resource_type
@@ -86,18 +97,27 @@ locals {
       application_name  = service.resource_type == "elasticbeanstalk_environment" ? service.resource.elasticbeanstalk.application_name : null
       environment_name  = service.resource_type == "elasticbeanstalk_environment" ? service.resource.elasticbeanstalk.environment_name : null
       published_metrics = service.resource_type == "elasticbeanstalk_environment" ? service.resource.elasticbeanstalk.published_metrics : []
+      stage             = service.resource_type == "api_gateway" ? service.resource.api_gateway.stage : null
       account_id        = try(service.resource.account_id, null)
       region            = try(service.resource.region, null)
-      canonical_key     = service.resource_type == "eks_service" ? format("eks:%s/%s/%s", service.resource.eks.cluster_name, service.resource.eks.namespace, service.resource.eks.service_name) : service.resource_type == "lambda_function" ? format("lambda:%s", service.resource.lambda.function_name) : service.resource_type == "elasticbeanstalk_environment" ? format("elasticbeanstalk:%s/%s", service.resource.elasticbeanstalk.application_name, service.resource.elasticbeanstalk.environment_name) : format("custom:%s", service_key)
-      dashboard         = try(service.dashboard, {})
-      tags              = try(service.tags, {})
+      canonical_key = coalesce(
+        try(format("eks:%s/%s/%s", service.resource.eks.cluster_name, service.resource.eks.namespace, service.resource.eks.service_name), null),
+        try(format("lambda:%s", service.resource.lambda.function_name), null),
+        try(format("elasticbeanstalk:%s/%s", service.resource.elasticbeanstalk.application_name, service.resource.elasticbeanstalk.environment_name), null),
+        try(format("apigateway:%s/%s", service.resource.api_gateway.api_name, service.resource.api_gateway.stage), null),
+        try(format("ec2:%s", service.resource.ec2.instance_id), null),
+        try(format("alb:%s", service.resource.load_balancer.arn_suffix), null),
+        format("custom:%s", service_key)
+      )
+      dashboard = try(service.dashboard, {})
+      tags      = try(service.tags, {})
       monitors = [
         for monitor_key, monitor in try(service.monitors, {}) : merge({
           key                   = monitor_key
           target_name           = coalesce(try(monitor.preset, null), monitor_key)
           name                  = coalesce(try(monitor.name, null), upper(replace(monitor_key, "_", " ")))
           priority              = try(monitor.priority, 3)
-          dashboard_only        = try(monitor.dashboard_only, false)
+          dashboard_only        = try(monitor.dashboard_only, null)
           allow_missing_metrics = try(monitor.allow_missing_metrics, false)
           override              = try(monitor.override, false)
           name_override         = try(monitor.name_override, null)
@@ -123,12 +143,18 @@ locals {
       try(group.type, "") == "eks" ? format("eks:%s/%s/%s", group.cluster_name, group.namespace, group.service_name) :
       try(group.type, "") == "lambda" ? format("lambda:%s", group.service_name) :
       try(group.type, "") == "elasticbeanstalk" ? format("elasticbeanstalk:%s/%s", try(group.application_name, group.service_name), try(group.environment_name, group.service_name)) :
+      try(group.type, "") == "apigateway" ? format("apigateway:%s/%s", group.service_name, try(group.stage, "default")) :
+      try(group.type, "") == "ec2" ? format("ec2:%s", group.service_name) :
+      try(group.type, "") == "alb" ? format("alb:%s", group.service_name) :
       format("%s:%s", try(group.type, "custom"), group.service_name)
       ) => {
       key = try(group.canonical_key,
         try(group.type, "") == "eks" ? format("eks:%s/%s/%s", group.cluster_name, group.namespace, group.service_name) :
         try(group.type, "") == "lambda" ? format("lambda:%s", group.service_name) :
         try(group.type, "") == "elasticbeanstalk" ? format("elasticbeanstalk:%s/%s", try(group.application_name, group.service_name), try(group.environment_name, group.service_name)) :
+        try(group.type, "") == "apigateway" ? format("apigateway:%s/%s", group.service_name, try(group.stage, "default")) :
+        try(group.type, "") == "ec2" ? format("ec2:%s", group.service_name) :
+        try(group.type, "") == "alb" ? format("alb:%s", group.service_name) :
         format("%s:%s", try(group.type, "custom"), group.service_name)
       )
       display_name  = try(group.display_name, group.service_name)
@@ -157,10 +183,13 @@ locals {
           try(group.type, "") == "eks" ? format("eks:%s/%s/%s", group.cluster_name, group.namespace, group.service_name) :
           try(group.type, "") == "lambda" ? format("lambda:%s", group.service_name) :
           try(group.type, "") == "elasticbeanstalk" ? format("elasticbeanstalk:%s/%s", try(group.application_name, group.service_name), try(group.environment_name, group.service_name)) :
+          try(group.type, "") == "apigateway" ? format("apigateway:%s/%s", group.service_name, try(group.stage, "default")) :
+          try(group.type, "") == "ec2" ? format("ec2:%s", group.service_name) :
+          try(group.type, "") == "alb" ? format("alb:%s", group.service_name) :
           format("%s:%s", try(group.type, "custom"), group.service_name)
         )
         monitor_key    = try(monitor.key, monitor.target_name)
-        dashboard_only = try(monitor.dashboard_only, try(local.monitor_definition_map[monitor.target_name].dashboard_only, false))
+        dashboard_only = coalesce(try(monitor.dashboard_only, null), try(local.monitor_definition_map[monitor.target_name].dashboard_only, null), false)
         group          = group
         monitor        = monitor
         config = merge(local.monitor_definition_map[monitor.target_name], try(monitor.metric, null) != null ? {

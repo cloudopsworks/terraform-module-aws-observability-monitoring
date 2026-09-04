@@ -1,4 +1,4 @@
-## Naming convetion
+## Naming convention
 # - target: <golden_signal>-<target_type>-<metric>
 # Where:
 #   - <golden_signal> is one of:
@@ -262,9 +262,9 @@
   dimensions:
     FunctionName: "${group.service_name}"
   description: |
-    Error rate for Lambda Function has been breached.
+    Error count for Lambda Function has been breached.
     * Lambda Function: __${group.service_name}__
-    * Threshold: __${try(monitor.threshold, 20)} %__ of requests
+    * Threshold: __${try(monitor.threshold, 20)}__ errors per period configured
 - name: sat_lambda_throttled_requests
   comparison_operator: GreaterThanOrEqualToThreshold
   evaluation_periods: 1
@@ -326,10 +326,10 @@
     ApiName: "${group.service_name}"
     Stage: "${group.stage}"
   description: |
-    Error rate (HTTP 4xx) for API Gateway has been breached.
+    Error count (HTTP 4xx) for API Gateway has been breached.
     * API Gateway: __${group.service_name}__
     * Stage: __${group.stage}__
-    * Threshold: __${try(monitor.threshold, 20)} %__ of requests
+    * Threshold: __${try(monitor.threshold, 20)}__ responses per period configured
 - name: err_apigateway_service_faults
   comparison_operator: GreaterThanOrEqualToThreshold
   evaluation_periods: 1
@@ -343,16 +343,16 @@
     ApiName: "${group.service_name}"
     Stage: "${group.stage}"
   description: |
-    Fault rate (HTTP 5xx) for API Gateway has been breached.
+    Fault count (HTTP 5xx) for API Gateway has been breached.
     * API Gateway: __${group.service_name}__
     * Stage: __${group.stage}__
-    * Threshold: __${try(monitor.threshold, 20)} %__ of requests
+    * Threshold: __${try(monitor.threshold, 20)}__ responses per period configured
 - name: trf_apigateway_service_requests
   comparison_operator: GreaterThanOrEqualToThreshold
   evaluation_periods: 1
   metric_name: Count
   namespace: AWS/ApiGateway
-  statistic: Sum
+  statistic: SampleCount
   period: 60
   default_threshold: 1000
   datapoints_to_alarm: 1
@@ -364,6 +364,141 @@
     * API Gateway: __${group.service_name}__
     * Stage: __${group.stage}__
     * Threshold: __${try(monitor.threshold, 1000)}__ requests per period configured
+- name: err_ec2_status_check_failed
+  comparison_operator: GreaterThanOrEqualToThreshold
+  evaluation_periods: 1
+  metric_name: StatusCheckFailed
+  namespace: AWS/EC2
+  statistic: Maximum
+  period: 60
+  default_threshold: 1
+  datapoints_to_alarm: 1
+  treat_missing_data: missing
+  dimensions:
+    InstanceId: "${group.service_name}"
+  description: |
+    An EC2 instance status check has failed.
+    * Instance: __${group.service_name}__
+- name: trf_ec2_network_in
+  comparison_operator: GreaterThanThreshold
+  evaluation_periods: 1
+  metric_name: NetworkIn
+  namespace: AWS/EC2
+  statistic: Sum
+  period: 300
+  default_threshold: 0
+  datapoints_to_alarm: 1
+  dashboard_only: true
+  dimensions:
+    InstanceId: "${group.service_name}"
+  description: |
+    Incoming network traffic for an EC2 instance.
+    * Instance: __${group.service_name}__
+- name: trf_ec2_network_out
+  comparison_operator: GreaterThanThreshold
+  evaluation_periods: 1
+  metric_name: NetworkOut
+  namespace: AWS/EC2
+  statistic: Sum
+  period: 300
+  default_threshold: 0
+  datapoints_to_alarm: 1
+  dashboard_only: true
+  dimensions:
+    InstanceId: "${group.service_name}"
+  description: |
+    Outgoing network traffic for an EC2 instance.
+    * Instance: __${group.service_name}__
+- name: sat_ec2_cpu_utilization
+  comparison_operator: GreaterThanOrEqualToThreshold
+  evaluation_periods: 3
+  metric_name: CPUUtilization
+  namespace: AWS/EC2
+  statistic: Average
+  period: 300
+  default_threshold: 80
+  datapoints_to_alarm: 2
+  dimensions:
+    InstanceId: "${group.service_name}"
+  description: |
+    CPU utilization for an EC2 instance has breached its saturation threshold.
+    * Instance: __${group.service_name}__
+    * Threshold: __${try(monitor.threshold, 80)} %__
+- name: lat_alb_target_response_time
+  comparison_operator: GreaterThanThreshold
+  evaluation_periods: 3
+  metric_name: TargetResponseTime
+  namespace: AWS/ApplicationELB
+  statistic: p99
+  period: 60
+  default_threshold: 1
+  datapoints_to_alarm: 2
+  dimensions:
+    LoadBalancer: "${group.service_name}"
+  description: |
+    Application Load Balancer target response time has breached its latency threshold.
+    * Load balancer ARN suffix: __${group.service_name}__
+- name: err_alb_target_5xx
+  comparison_operator: GreaterThanThreshold
+  evaluation_periods: 1
+  metric_name: HTTPCode_Target_5XX_Count
+  namespace: AWS/ApplicationELB
+  statistic: Sum
+  period: 60
+  default_threshold: 5
+  datapoints_to_alarm: 1
+  treat_missing_data: notBreaching
+  dimensions:
+    LoadBalancer: "${group.service_name}"
+  description: |
+    Application Load Balancer targets have returned too many HTTP 5xx responses.
+    * Load balancer ARN suffix: __${group.service_name}__
+    * Threshold: __${try(monitor.threshold, 5)}__ responses per period
+- name: err_alb_elb_5xx
+  comparison_operator: GreaterThanThreshold
+  evaluation_periods: 1
+  metric_name: HTTPCode_ELB_5XX_Count
+  namespace: AWS/ApplicationELB
+  statistic: Sum
+  period: 60
+  default_threshold: 1
+  datapoints_to_alarm: 1
+  treat_missing_data: notBreaching
+  dimensions:
+    LoadBalancer: "${group.service_name}"
+  description: |
+    Application Load Balancer generated HTTP 5xx responses have breached the threshold.
+    * Load balancer ARN suffix: __${group.service_name}__
+- name: trf_alb_requests
+  comparison_operator: GreaterThanThreshold
+  evaluation_periods: 1
+  metric_name: RequestCount
+  namespace: AWS/ApplicationELB
+  statistic: Sum
+  period: 60
+  default_threshold: 0
+  datapoints_to_alarm: 1
+  dashboard_only: true
+  dimensions:
+    LoadBalancer: "${group.service_name}"
+  description: |
+    Requests processed by an Application Load Balancer.
+    * Load balancer ARN suffix: __${group.service_name}__
+- name: sat_alb_rejected_connections
+  comparison_operator: GreaterThanOrEqualToThreshold
+  evaluation_periods: 1
+  metric_name: RejectedConnectionCount
+  namespace: AWS/ApplicationELB
+  statistic: Sum
+  period: 60
+  default_threshold: 1
+  datapoints_to_alarm: 1
+  treat_missing_data: notBreaching
+  dimensions:
+    LoadBalancer: "${group.service_name}"
+  description: |
+    Application Load Balancer connections were rejected at connection capacity.
+    * Load balancer ARN suffix: __${group.service_name}__
 - name: sat_lambda_concurrent_executions
   comparison_operator: GreaterThanOrEqualToThreshold
   evaluation_periods: 1
