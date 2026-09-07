@@ -41,8 +41,8 @@ locals {
   slo_operational = flatten([
     for slo in local.slo_set_env : [
       for operation in try(slo.service_level_indicator.operations, []) : {
-        name        = format("%s %s op", try(slo.name, slo.service_level_indicator.name), replace(replace(operation, "*", "ALL"), "/[\\/\\$\\%\\^]/", "-"))
-        description = coalesce(try(slo.description, null), "SLO Setting for ${try(slo.name, slo.service_level_indicator.name)} - ${replace(operation, "*", "ALL")}")
+        name        = format("%s %s %s OP", try(slo.name, slo.service_level_indicator.name), replace(replace(operation, "*", "ALL"), "/[\\/\\$\\%\\^]/", "-"), coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))
+        description = coalesce(try(slo.description, null), "SLO Setting for ${try(slo.name, slo.service_level_indicator.name)} - Operation: ${replace(operation, "*", "ALL")} - Metric Type: ${coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")}")
         source_service_key = try(slo.source_service_key,
           try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
           try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
