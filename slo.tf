@@ -51,7 +51,7 @@ locals {
         )
         slo_key = format("operational-%s-%s", replace(replace(operation, "*", "ALL"), "/[\\/\\$\\%\\^]/", "-"), coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))
         sli = {
-          comparison_operator = coalesce(try(slo.service_level_indicator.comparison, null), try(slo.service_level_indicator.comparisson, null), "LessThan")
+          comparison_operator = coalesce(try(slo.service_level_indicator.comparison, null), try(slo.service_level_indicator.comparisson, null), upper(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")) == "AVAILABILITY" ? "GreaterThan" : "LessThan")
           metric_threshold    = try(slo.service_level_indicator.threshold, null)
           sli_metric = {
             key_attributes = {
