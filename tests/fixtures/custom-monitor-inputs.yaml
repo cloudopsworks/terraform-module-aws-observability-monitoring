@@ -1,0 +1,25 @@
+# Module configuration
+monitor_groups:
+  - name: payments
+    monitors:
+      - service_name: payments-prod
+        type: custom
+        monitors:
+          - name: QUEUE DEPTH
+            target_name: custom
+            priority: 2
+            threshold: 500
+            comparison_operator: GreaterThanThreshold
+            evaluation_periods: 1
+            datapoints_to_alarm: 1
+            treat_missing_data: notBreaching
+            metric:
+              namespace: AWS/SQS
+              metric_name: ApproximateNumberOfMessagesVisible
+              dimensions:
+                QueueName: payments-prod
+              statistic: Average
+              period: 60
+              unit: Count
+
+slos: {}

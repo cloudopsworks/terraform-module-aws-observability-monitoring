@@ -41,20 +41,35 @@ variable "slo_settings" {
 
 ## Monitoring groups configuration - yaml format
 # monitor_groups:
-#   - service_name: "checkout-helm"                    # (Required) Service or resource name used by monitor presets.
-#     type: eks                                       # (Required) Resource type. Valid legacy values: eks, lambda, apigateway.
-#     cluster_name: "eks-main"                       # (Required for eks) EKS cluster name.
-#     namespace: "default"                           # (Required for eks) Kubernetes namespace.
+#   - name: applications                              # (Required) Unique monitor group and fleet dashboard name.
 #     monitors:
-#       - name: "REQUEST LATENCY"                    # (Required) Alarm display name.
-#         target_name: lat_eks_service_requests_apm  # (Required) Built-in monitor preset key.
-#         priority: 2                                # (Required) Alarm priority used in the generated name.
-#         threshold: 80                              # (Optional) Alarm threshold; preset default applies when omitted.
+#       - service_name: "checkout-helm"              # (Required) Service or resource name used by monitor presets.
+#         type: eks                                  # (Required) Resource type. Valid values: eks, lambda, apigateway, ec2, alb, elasticbeanstalk, custom.
+#         cluster_name: "eks-main"                  # (Required for eks) EKS cluster name.
+#         namespace: "default"                      # (Required for eks) Kubernetes namespace.
+#         monitors:
+#           - name: "REQUEST LATENCY"               # (Required) Alarm display name.
+#             target_name: lat_eks_service_requests_apm # (Required) Built-in preset key, or custom for an inline metric.
+#             priority: 2                           # (Required) Alarm priority used in the generated name.
+#             threshold: 80                         # (Optional) Alarm threshold; preset default applies when omitted.
 variable "monitor_groups" {
-  description = "Legacy list of monitoring groups. Kept for backward compatibility."
+  description = "Named monitor groups containing resource monitor definitions; each group is the boundary for an optional fleet dashboard."
   type        = any
   default     = []
   nullable    = false
+
+  validation {
+    condition = try(alltrue([
+      for monitor_group in var.monitor_groups :
+      length(trimspace(monitor_group.name)) > 0 && length(monitor_group.monitors) >= 0
+    ]), false)
+    error_message = "Each monitor_groups entry must have a non-empty name and a monitors list."
+  }
+
+  validation {
+    condition     = try(length(distinct([for monitor_group in var.monitor_groups : monitor_group.name])) == length(var.monitor_groups), false)
+    error_message = "Each monitor_groups name must be unique."
+  }
 }
 
 variable "alarm_targets" {
@@ -67,6 +82,29 @@ variable "alarm_targets" {
   nullable = true
 }
 
+## Typed service observability configuration - yaml format
+# services:
+#   orders-api:
+#     resource_type: api_gateway                    # (Required) Valid values: eks_service, lambda_function, elasticbeanstalk_environment, api_gateway, ec2_instance, application_load_balancer, custom.
+#     resource:
+#       api_gateway:                                # (Required for api_gateway) API Gateway REST API stage identity.
+#         api_name: orders-api                      # (Required) REST API name used by the ApiName CloudWatch dimension.
+#         stage: prod                               # (Required) API stage used by the Stage CloudWatch dimension.
+#       ec2:                                        # (Required for ec2_instance) EC2 instance identity.
+#         instance_id: i-0123456789abcdef0          # (Required) EC2 instance ID used by the InstanceId CloudWatch dimension.
+#       load_balancer:                              # (Required for application_load_balancer) Application Load Balancer identity.
+#         arn_suffix: app/orders/50dc6c495c0c9188   # (Required) Final ARN portion used by the LoadBalancer CloudWatch dimension.
+#     monitors:
+#       latency:
+#         preset: lat_apigateway_service_requests   # (Optional) Built-in/custom monitor preset. Default: monitor key.
+#         priority: 2                               # (Optional) Alarm priority. Default: 3.
+#         threshold: 500                            # (Optional) Alarm threshold. Default: preset-specific.
+#     slos:
+#       latency:
+#         type: metric-query                        # (Required) Use metric-query for direct infrastructure metrics.
+#         preset: lat_apigateway_service_requests   # (Required for metric-query) Direct metric preset.
+#         comparison: LessThan                      # (Optional) SLI comparison operator. Default: LessThan.
+#         threshold: 500                            # (Required for metric-query) SLI threshold.
 variable "services" {
   description = "Typed v2 service observability definitions for alarms, SLOs, and dashboards."
   type = map(object({
@@ -99,6 +137,19 @@ variable "services" {
         published_metrics        = optional(set(string), ["EnvironmentHealth"])
       }))
 
+      api_gateway = optional(object({
+        api_name = string
+        stage    = string
+      }))
+
+      ec2 = optional(object({
+        instance_id = string
+      }))
+
+      load_balancer = optional(object({
+        arn_suffix = string
+      }))
+
       app_signals = optional(object({
         enabled     = optional(bool, true)
         environment = optional(string)
@@ -121,7 +172,7 @@ variable "services" {
       statistic             = optional(string)
       unit                  = optional(string)
       treat_missing_data    = optional(string)
-      dashboard_only        = optional(bool, false)
+      dashboard_only        = optional(bool)
       allow_missing_metrics = optional(bool, false)
       override              = optional(bool, false)
       name_override         = optional(string)
@@ -206,15 +257,15 @@ variable "services" {
   validation {
     condition = alltrue([
       for service_key, service in var.services :
-      service.resource_type == "eks_service" ? (
-        try(service.resource.eks, null) != null && try(service.resource.lambda, null) == null && try(service.resource.elasticbeanstalk, null) == null
-        ) : service.resource_type == "lambda_function" ? (
-        try(service.resource.lambda, null) != null && try(service.resource.eks, null) == null && try(service.resource.elasticbeanstalk, null) == null
-        ) : service.resource_type == "elasticbeanstalk_environment" ? (
-        try(service.resource.elasticbeanstalk, null) != null && try(service.resource.eks, null) == null && try(service.resource.lambda, null) == null
-        ) : service.resource_type == "custom" ? (
-        length(try(service.resource.dimensions, {})) > 0 && try(service.resource.eks, null) == null && try(service.resource.lambda, null) == null && try(service.resource.elasticbeanstalk, null) == null
-      ) : false
+      compact([
+        try(service.resource.eks, null) != null ? "eks_service" : "",
+        try(service.resource.lambda, null) != null ? "lambda_function" : "",
+        try(service.resource.elasticbeanstalk, null) != null ? "elasticbeanstalk_environment" : "",
+        try(service.resource.api_gateway, null) != null ? "api_gateway" : "",
+        try(service.resource.ec2, null) != null ? "ec2_instance" : "",
+        try(service.resource.load_balancer, null) != null ? "application_load_balancer" : "",
+        length(try(service.resource.dimensions, {})) > 0 ? "custom" : "",
+      ]) == tolist([service.resource_type])
     ])
     error_message = "Each service must match exactly one identity block for its resource_type; custom services require non-empty dimensions."
   }
@@ -228,68 +279,6 @@ variable "services" {
     ]))
     error_message = "A service SLO cannot set both comparison and comparisson with different values. Use comparison; comparisson is a deprecated compatibility alias."
   }
-}
-
-variable "monitor_definitions" {
-  description = "Custom monitor presets keyed by preset name."
-  type = map(object({
-    resource_type        = string
-    signal               = string
-    display_name         = string
-    description_template = optional(string)
-    default_threshold    = optional(number)
-    comparison_operator  = optional(string)
-    evaluation_periods   = optional(number, 1)
-    datapoints_to_alarm  = optional(number, 1)
-    period               = optional(number)
-    statistic            = optional(string)
-    unit                 = optional(string)
-    treat_missing_data   = optional(string, "missing")
-    dashboard_only       = optional(bool, false)
-    prerequisites        = optional(list(string), [])
-    metric = optional(object({
-      namespace   = string
-      metric_name = string
-      dimensions = map(object({
-        value      = optional(string)
-        value_from = optional(string)
-      }))
-      statistic = optional(string)
-      period    = optional(number)
-      unit      = optional(string)
-    }))
-    metric_query = optional(list(object({
-      id          = string
-      expression  = optional(string)
-      label       = optional(string)
-      return_data = optional(bool, true)
-      metric = optional(object({
-        namespace   = string
-        metric_name = string
-        dimensions = map(object({
-          value      = optional(string)
-          value_from = optional(string)
-        }))
-        statistic = string
-        period    = optional(number)
-        unit      = optional(string)
-      }))
-    })), [])
-    slo = optional(object({
-      supported          = optional(bool, false)
-      type               = optional(string)
-      bad_count_preset   = optional(string)
-      total_count_preset = optional(string)
-    }), {})
-    dashboard = optional(object({
-      widget_type = optional(string, "metric")
-      width       = optional(number, 12)
-      height      = optional(number, 6)
-      title       = optional(string)
-    }), {})
-  }))
-  default  = {}
-  nullable = false
 }
 
 variable "resource_profiles" {
@@ -321,10 +310,17 @@ variable "resource_profiles" {
   nullable = false
 }
 
+## CloudWatch dashboard generation settings - yaml format
+# dashboards:
+#   enabled: false              # (Optional) Create dashboards. Default: false.
+#   name_prefix: observability  # (Optional) Dashboard name prefix. Default: module system short name.
+#   create_fleet: true          # (Optional) Create one fleet dashboard per monitor group. Default: true.
+#   create_per_service: true    # (Optional) Create one dashboard per monitored service. Default: true.
+#   include_slo_only: true      # (Optional) Include SLO-only services in per-service dashboards. Default: true.
 variable "dashboard_settings" {
-  description = "CloudWatch dashboard generation settings."
+  description = "Opt-in CloudWatch dashboard generation settings; fleet dashboards are scoped to named monitor groups."
   type = object({
-    enabled            = optional(bool, true)
+    enabled            = optional(bool, false)
     name_prefix        = optional(string)
     create_fleet       = optional(bool, true)
     create_per_service = optional(bool, true)

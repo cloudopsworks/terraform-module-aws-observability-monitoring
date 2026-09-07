@@ -3,54 +3,56 @@ alarm_targets: []
 #  - type: sns
 #    name: SLACK-nexus-prd-apps-alarms
 monitor_groups:
-  - service_name: "checkout-helm"
-    type: eks
-    cluster_name: "eks-nexus-main-prod-003-usea1"
-    namespace: "checkout-prod"
+  - name: nexus-applications
     monitors:
-      - name: "REQUEST LATENCY"
-        target_name: lat_eks_service_requests_apm
-        priority: 2
-        service_name: "checkout-helm"
-        threshold: 80
+      - service_name: "checkout-helm"
+        type: eks
+        cluster_name: "eks-nexus-main-prod-003-usea1"
+        namespace: "checkout-prod"
+        monitors:
+          - name: "REQUEST LATENCY"
+            target_name: lat_eks_service_requests_apm
+            priority: 2
+            service_name: "checkout-helm"
+            threshold: 80
 
-      - name: "REQUEST ERROR RATE"
-        target_name: err_eks_service_requests_apm
-        priority: 1
-        threshold: 10
+          - name: "REQUEST ERROR RATE"
+            target_name: err_eks_service_requests_apm
+            priority: 1
+            threshold: 10
 
-      - name: "REQUEST COUNT"
-        target_name: trf_eks_service_requests_apm
-        priority: 3
-        threshold: 150
+          - name: "REQUEST COUNT"
+            target_name: trf_eks_service_requests_apm
+            priority: 3
+            threshold: 150
 
-      - name: "CPU USAGE"
-        target_name: sat_eks_container_cpu_utilization
-        priority: 3
-        threshold: 85
+          - name: "CPU USAGE"
+            target_name: sat_eks_container_cpu_utilization
+            priority: 3
+            threshold: 85
 
-      - name: "MEMORY USAGE"
-        target_name: sat_eks_container_memory_utilization
-        priority: 3
-        threshold: 85
+          - name: "MEMORY USAGE"
+            target_name: sat_eks_container_memory_utilization
+            priority: 3
+            threshold: 85
 
-  - service_name: "auth-lambda-prod"
-    type: lambda
-    monitors:
-      - name: "REQUEST LATENCY"
-        target_name: lat_lambda_service_requests_apm
-        priority: 2
-        threshold: 10000
+      - service_name: "auth-lambda-prod"
+        type: lambda
+        monitors:
+          - name: "REQUEST LATENCY"
+            target_name: lat_lambda_service_requests_apm
+            priority: 2
+            threshold: 10000
 
-      - name: "REQUEST ERROR RATE"
-        target_name: err_lambda_service_requests_apm
-        priority: 1
-        threshold: 5
+          - name: "REQUEST ERROR RATE"
+            target_name: err_lambda_service_requests_apm
+            priority: 1
+            threshold: 5
 
-      - name: "REQUEST COUNT"
-        target_name: trf_lambda_service_requests_apm
-        priority: 3
-        threshold: 200
+          - name: "REQUEST COUNT"
+            target_name: trf_lambda_service_requests_apm
+            priority: 3
+            threshold: 200
 
 slos:
   service_level_objectives:

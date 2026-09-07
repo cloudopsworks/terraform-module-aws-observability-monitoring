@@ -1,0 +1,91 @@
+alarm_targets: []
+services:
+  orders-api:
+    display_name: Orders API Gateway
+    resource_type: api_gateway
+    resource:
+      api_gateway:
+        api_name: orders-api
+        stage: prod
+    monitors:
+      latency:
+        preset: lat_apigateway_service_requests
+        priority: 2
+        threshold: 500
+      client_errors:
+        preset: err_apigateway_service_errors
+        priority: 2
+        threshold: 20
+      server_errors:
+        preset: err_apigateway_service_faults
+        priority: 1
+        threshold: 5
+      traffic:
+        preset: trf_apigateway_service_requests
+        priority: 3
+        dashboard_only: true
+    slos:
+      latency:
+        type: metric-query
+        preset: lat_apigateway_service_requests
+        comparison: LessThan
+        threshold: 500
+
+  batch-worker:
+    display_name: Batch Worker
+    resource_type: ec2_instance
+    resource:
+      ec2:
+        instance_id: i-0123456789abcdef0
+    monitors:
+      status:
+        preset: err_ec2_status_check_failed
+        priority: 1
+      traffic_in:
+        preset: trf_ec2_network_in
+        priority: 3
+      traffic_out:
+        preset: trf_ec2_network_out
+        priority: 3
+      cpu:
+        preset: sat_ec2_cpu_utilization
+        priority: 2
+        threshold: 85
+    slos:
+      cpu:
+        type: metric-query
+        preset: sat_ec2_cpu_utilization
+        comparison: LessThan
+        threshold: 85
+
+  public-alb:
+    display_name: Public Application Load Balancer
+    resource_type: application_load_balancer
+    resource:
+      load_balancer:
+        arn_suffix: app/public-alb/50dc6c495c0c9188
+    monitors:
+      latency:
+        preset: lat_alb_target_response_time
+        priority: 2
+        threshold: 1
+      target_errors:
+        preset: err_alb_target_5xx
+        priority: 1
+        threshold: 5
+      load_balancer_errors:
+        preset: err_alb_elb_5xx
+        priority: 1
+        threshold: 1
+      traffic:
+        preset: trf_alb_requests
+        priority: 3
+      rejected_connections:
+        preset: sat_alb_rejected_connections
+        priority: 1
+    slos:
+      latency:
+        type: metric-query
+        preset: lat_alb_target_response_time
+        comparison: LessThan
+        threshold: 1

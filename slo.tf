@@ -41,17 +41,17 @@ locals {
   slo_operational = flatten([
     for slo in local.slo_set_env : [
       for operation in try(slo.service_level_indicator.operations, []) : {
-        name        = format("%s %s op", try(slo.name, slo.service_level_indicator.name), replace(operation, "/[\\/\\$\\%\\^]/", "-"))
-        description = coalesce(try(slo.description, null), "SLO Setting for ${try(slo.name, slo.service_level_indicator.name)} - ${operation}")
+        name        = format("%s %s %s OP", try(slo.name, slo.service_level_indicator.name), replace(replace(operation, "*", "ALL"), "/[\\/\\$\\%\\^]/", "-"), coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))
+        description = coalesce(try(slo.description, null), "SLO Setting for ${try(slo.name, slo.service_level_indicator.name)} - Operation: ${replace(operation, "*", "ALL")} - Metric Type: ${coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")}")
         source_service_key = try(slo.source_service_key,
           try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
           try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
-        slo_key = format("operational-%s", replace(operation, "/[\\/\\$\\%\\^\\s]+/", "-"))
+        slo_key = format("operational-%s-%s", replace(replace(operation, "*", "ALL"), "/[\\/\\$\\%\\^]/", "-"), coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))
         sli = {
-          comparison_operator = coalesce(try(slo.service_level_indicator.comparison, null), try(slo.service_level_indicator.comparisson, null), "LessThan")
+          comparison_operator = coalesce(try(slo.service_level_indicator.comparison, null), try(slo.service_level_indicator.comparisson, null), upper(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")) == "AVAILABILITY" ? "GreaterThan" : "LessThan")
           metric_threshold    = try(slo.service_level_indicator.threshold, null)
           sli_metric = {
             key_attributes = {
@@ -60,9 +60,9 @@ locals {
               Type        = slo.service_level_indicator.type
             }
             metric_type    = coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")
-            operation_name = operation
+            operation_name = contains(["ALL", "*"], upper(operation)) ? null : operation
             period_seconds = coalesce(try(slo.service_level_indicator.period_seconds, null), 60)
-            statistic      = coalesce(try(slo.service_level_indicator.statistic, null), "p99")
+            statistic      = upper(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")) == "AVAILABILITY" ? null : coalesce(try(slo.service_level_indicator.statistic, null), "p99")
           }
         }
         goal = {
@@ -337,8 +337,11 @@ locals {
                   metric_name = local.monitor_definition_map[slo.preset].metric_name
                   dimensions = [
                     for dim_name, dim_value in try(local.monitor_definition_map[slo.preset].dimensions, {}) : {
-                      name  = dim_name
-                      value = replace(tostring(dim_value), "$${group.service_name}", slo.service_level_indicator.name)
+                      name = dim_name
+                      value = replace(
+                        replace(tostring(dim_value), "$${group.service_name}", slo.service_level_indicator.name),
+                        "$${group.stage}", try(slo.service_level_indicator.stage, "")
+                      )
                     }
                   ]
                 }
