@@ -27,6 +27,13 @@
 #         saturation_metric: CPU                   # (Optional) Saturation metric. Valid values: CPU, MEMORY. Default: CPU.
 #         traffic_threshold: 1000                  # (Required for golden-signal) Traffic threshold.
 #         period_seconds: 300                      # (Optional) Period in seconds. Default: 300.
+#         alarm:                                    # (Optional) Burn-rate alarm settings. Default: disabled.
+#           enabled: false                          # (Optional) Whether to create a burn-rate alarm. Default: false.
+#           priority: 1                             # (Optional) Alarm priority used in the generated name. Default: 1.
+#           threshold: 1                            # (Optional) Burn-rate threshold. Default: 1.
+#           datapoints_to_alarm: 1                  # (Optional) Consecutive breaching datapoints required. Default: 1.
+#           period: 60                              # (Optional) CloudWatch alarm evaluation period in seconds. Default: 60.
+#           look_back_window_minutes: 60            # (Optional) Burn-rate look-back window in minutes. Default: 60.
 #       goal:
 #         attainment: 99.9                         # (Optional) Attainment percentage. Default: 99.9.
 #         duration: 7                              # (Optional) Rolling interval duration. Default: 7.
@@ -105,6 +112,13 @@ variable "alarm_targets" {
 #         preset: lat_apigateway_service_requests   # (Required for metric-query) Direct metric preset.
 #         comparison: LessThan                      # (Optional) SLI comparison operator. Default: LessThan.
 #         threshold: 500                            # (Required for metric-query) SLI threshold.
+#         alarm:                                     # (Optional) Application Signals burn-rate alarm settings. Default: disabled.
+#           enabled: false                           # (Optional) Whether to create the burn-rate alarm. Default: false.
+#           priority: 1                              # (Optional) Alarm priority used in the generated name. Default: 1.
+#           threshold: 1                             # (Optional) Burn-rate threshold; values above 1 consume budget faster than the SLO baseline. Default: 1.
+#           datapoints_to_alarm: 1                   # (Optional) Consecutive breaching datapoints required. Default: 1.
+#           period: 60                               # (Optional) CloudWatch alarm evaluation period in seconds. Default: 60.
+#           look_back_window_minutes: 60             # (Optional) Burn-rate calculation window in minutes. Default: 60.
 variable "services" {
   description = "Typed v2 service observability definitions for alarms, SLOs, and dashboards."
   type = map(object({
@@ -225,6 +239,14 @@ variable "services" {
       traffic_threshold    = optional(number)
       saturation_threshold = optional(number)
       saturation_metric    = optional(string)
+      alarm = optional(object({
+        enabled                  = optional(bool, false)
+        priority                 = optional(number, 1)
+        threshold                = optional(number, 1)
+        datapoints_to_alarm      = optional(number, 1)
+        period                   = optional(number, 60)
+        look_back_window_minutes = optional(number, 60)
+      }), {})
       goal = optional(object({
         attainment        = optional(number, 99.9)
         duration          = optional(number, 7)

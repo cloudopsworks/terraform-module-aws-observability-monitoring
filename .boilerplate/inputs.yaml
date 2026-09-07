@@ -78,6 +78,13 @@ slos: {} # (Optional) SLO settings passed to the Terraform slo_settings input. D
 #         saturation_threshold: 85 # (Required for golden-signal) Saturation threshold.
 #         saturation_metric: CPU # (Optional for EKS golden-signal) Valid values: CPU, MEMORY. Default: CPU.
 #         period_seconds: 300 # (Optional) SLI period in seconds. Default: 300.
+#         alarm: # (Optional) Application Signals burn-rate alarm settings. Default: disabled.
+#           enabled: false # (Optional) Whether to create the burn-rate alarm. Default: false.
+#           priority: 1 # (Optional) Alarm priority used in the generated name. Default: 1.
+#           threshold: 1 # (Optional) Burn-rate threshold; values above 1 consume budget faster than the SLO baseline. Default: 1.
+#           datapoints_to_alarm: 1 # (Optional) Consecutive breaching datapoints required. Default: 1.
+#           period: 60 # (Optional) CloudWatch alarm evaluation period in seconds. Default: 60.
+#           look_back_window_minutes: 60 # (Optional) Burn-rate calculation window in minutes. Default: 60.
 #       preset: eb_latency_p99 # (Required for metric-query/request-based) Monitor preset used as SLO metric source.
 #       goal: # (Optional) SLO goal settings.
 #         attainment: 99.9 # (Optional) Attainment percentage. Default: 99.9.
@@ -176,6 +183,13 @@ services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and das
 #         traffic_threshold: 1000 # (Optional) Golden Signals traffic threshold.
 #         saturation_threshold: 85 # (Optional) Golden Signals saturation threshold.
 #         saturation_metric: CPU # (Optional) Valid values: CPU, MEMORY. Default: CPU.
+#         alarm: # (Optional) Application Signals burn-rate alarm settings. Default: disabled.
+#           enabled: false # (Optional) Whether to create the burn-rate alarm. Default: false.
+#           priority: 1 # (Optional) Alarm priority used in the generated name. Default: 1.
+#           threshold: 1 # (Optional) Burn-rate threshold; values above 1 consume budget faster than the SLO baseline. Default: 1.
+#           datapoints_to_alarm: 1 # (Optional) Consecutive breaching datapoints required. Default: 1.
+#           period: 60 # (Optional) CloudWatch alarm evaluation period in seconds. Default: 60.
+#           look_back_window_minutes: 60 # (Optional) Burn-rate calculation window in minutes. Default: 60.
 #         goal: # (Optional) SLO goal settings.
 #           attainment: 99.9 # (Optional) Attainment percentage. Default: 99.9.
 #           duration: 7 # (Optional) Rolling interval duration. Default: 7.

@@ -75,7 +75,8 @@ locals {
           }
           warning_threshold = coalesce(try(slo.goal.warning_threshold, null), 80)
         }
-        tags = try(slo.tags, {})
+        alarm = try(slo.service_level_indicator.alarm, {})
+        tags  = try(slo.tags, {})
       }
     ] if try(slo.enabled, true) && slo.type == "operational"
   ])
@@ -129,7 +130,8 @@ locals {
           }
           warning_threshold = coalesce(try(slo.goal.warning_threshold, null), 80)
         }
-        tags = try(slo.tags, {})
+        alarm = try(slo.service_level_indicator.alarm, {})
+        tags  = try(slo.tags, {})
       },
       {
         name               = format("gs-errors-%s", lower(try(slo.name, slo.service_level_indicator.name)))
@@ -201,7 +203,8 @@ locals {
             }
           }
         }
-        tags = try(slo.tags, {})
+        alarm = try(slo.service_level_indicator.alarm, {})
+        tags  = try(slo.tags, {})
       },
       {
         name               = format("gs-traffic-%s", lower(try(slo.name, slo.service_level_indicator.name)))
@@ -249,7 +252,8 @@ locals {
           }
           warning_threshold = coalesce(try(slo.goal.warning_threshold, null), 80)
         }
-        tags = try(slo.tags, {})
+        alarm = try(slo.service_level_indicator.alarm, {})
+        tags  = try(slo.tags, {})
       },
       {
         name               = format("gs-saturation-%s", lower(try(slo.name, slo.service_level_indicator.name)))
@@ -312,7 +316,8 @@ locals {
           }
           warning_threshold = coalesce(try(slo.goal.warning_threshold, null), 80)
         }
-        tags = try(slo.tags, {})
+        alarm = try(slo.service_level_indicator.alarm, {})
+        tags  = try(slo.tags, {})
       }
     ] if try(slo.enabled, true) && slo.type == "golden-signal"
   ])
@@ -363,7 +368,8 @@ locals {
         }
         warning_threshold = coalesce(try(slo.goal.warning_threshold, null), 80)
       }
-      tags = try(slo.tags, {})
+      alarm = try(slo.service_level_indicator.alarm, {})
+      tags  = try(slo.tags, {})
     }
     if try(slo.enabled, true) && slo.type == "metric-query"
   ]
@@ -432,7 +438,8 @@ locals {
         }
         warning_threshold = coalesce(try(slo.goal.warning_threshold, null), 80)
       }
-      tags = try(slo.tags, {})
+      alarm = try(slo.service_level_indicator.alarm, {})
+      tags  = try(slo.tags, {})
     }
     if try(slo.enabled, true) && slo.type == "request-based" && try(slo.preset, null) == "eb_5xx_availability"
   ]
@@ -444,13 +451,15 @@ resource "awscc_applicationsignals_service_level_objective" "slo" {
   for_each = {
     for slo in local.slo_all : slo.name => slo
   }
-  name                     = each.value.name
-  description              = each.value.description
-  sli                      = try(each.value.sli, null)
-  goal                     = try(each.value.goal, null)
-  request_based_sli        = try(each.value.request_based_sli, null)
-  burn_rate_configurations = try(each.value.burn_rate_configurations, null)
-  exclusion_windows        = try(each.value.exclusion_windows, null)
+  name              = each.value.name
+  description       = each.value.description
+  sli               = try(each.value.sli, null)
+  goal              = try(each.value.goal, null)
+  request_based_sli = try(each.value.request_based_sli, null)
+  burn_rate_configurations = try(each.value.alarm.enabled, false) ? [{
+    look_back_window_minutes = coalesce(try(each.value.alarm.look_back_window_minutes, null), 60)
+  }] : try(each.value.burn_rate_configurations, null)
+  exclusion_windows = try(each.value.exclusion_windows, null)
   tags = toset([
     for k, v in merge(local.all_tags, each.value.tags) : {
       key   = k

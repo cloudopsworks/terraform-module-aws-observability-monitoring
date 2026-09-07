@@ -22,6 +22,16 @@ output "slo_names" {
   value       = { for service_key, slos in local.slo_names_by_service : service_key => slos if length(slos) > 0 }
 }
 
+output "slo_alarm_names" {
+  description = "CloudWatch Application Signals burn-rate alarm names keyed by canonical service key and SLO key."
+  value       = local.slo_alarm_names_by_service
+}
+
+output "slo_alarm_arns" {
+  description = "CloudWatch Application Signals burn-rate alarm ARNs keyed by canonical service key and SLO key."
+  value       = local.slo_alarm_arns_by_service
+}
+
 output "dashboard_names" {
   description = "CloudWatch dashboard names keyed by dashboard key."
   value = merge(

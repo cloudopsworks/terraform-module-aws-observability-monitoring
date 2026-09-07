@@ -37,6 +37,8 @@ description: |-
   - Opt-in per-service dashboards and one fleet CloudWatch dashboard per named monitor
     group.
   - Optional SNS and Lambda alarm actions through existing AWS targets.
+  - Opt-in Application Signals burn-rate alarms for every generated SLO, available
+    through both legacy `slo_settings` and typed `services` definitions.
   - Safe no-notification mode with `alarm_targets: []` or `alarm_targets: null`.
 
 introduction: |-
@@ -70,6 +72,9 @@ introduction: |-
     presets or inline custom metrics.
   - `services.<key>.slos` configures service-scoped Golden Signal, operational,
     metric-query, or request-based SLOs.
+  - `alarm.enabled: true` within a legacy service-level indicator or typed service SLO
+    creates an Application Signals burn-rate alarm using the standard alarm name and
+    action targets.
   - `dashboards` in `inputs.yaml` maps to Terraform `dashboard_settings`; dashboard
     generation is disabled unless `dashboards.enabled` is explicitly set to `true`.
 
@@ -121,8 +126,36 @@ usage: |-
   #             threshold: 100 # (Optional) Override preset threshold.
 
   slos: {} # (Optional) SLO settings passed to the Terraform slo_settings input. Default: {}.
+  # slos:
+  #   service_level_objectives:
+  #     - name: checkout-availability
+  #       type: operational
+  #       service_level_indicator:
+  #         metric_type: AVAILABILITY
+  #         operations: ["GET /health"]
+  #         alarm: # (Optional) Burn-rate alarm settings. Default: disabled.
+  #           enabled: true
+  #           priority: 1
+  #           threshold: 1
+  #           datapoints_to_alarm: 1
+  #           period: 60
+  #           look_back_window_minutes: 60
 
   services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and dashboards. Default: {}.
+  # services:
+  #   checkout:
+  #     slos:
+  #       availability:
+  #         type: operational
+  #         metric_type: AVAILABILITY
+  #         operations: ["GET /health"]
+  #         alarm: # (Optional) Same burn-rate alarm configuration available to typed services.
+  #           enabled: true
+  #           priority: 1
+  #           threshold: 1
+  #           datapoints_to_alarm: 1
+  #           period: 60
+  #           look_back_window_minutes: 60
 
   resource_profiles: {} # (Optional) Custom resource profile definitions. Default: {}.
 
@@ -278,6 +311,13 @@ examples: |-
           saturation_metric: CPU
           traffic_threshold: 1000
           period_seconds: 300
+          alarm:
+            enabled: true
+            priority: 1
+            threshold: 1
+            datapoints_to_alarm: 1
+            period: 60
+            look_back_window_minutes: 60
         goal:
           attainment: 99.9
           duration: 5
@@ -338,6 +378,13 @@ examples: |-
           traffic_threshold: 1000
           saturation_threshold: 85
           saturation_metric: CPU
+          alarm:
+            enabled: true
+            priority: 1
+            threshold: 1
+            datapoints_to_alarm: 1
+            period: 60
+            look_back_window_minutes: 60
           goal:
             attainment: 99.9
             duration: 7
