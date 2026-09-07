@@ -62,7 +62,7 @@ locals {
             metric_type    = coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")
             operation_name = contains(["ALL", "*"], upper(operation)) ? null : operation
             period_seconds = coalesce(try(slo.service_level_indicator.period_seconds, null), 60)
-            statistic      = coalesce(try(slo.service_level_indicator.statistic, null), "p99")
+            statistic      = upper(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")) == "AVAILABILITY" ? null : coalesce(try(slo.service_level_indicator.statistic, null), "p99")
           }
         }
         goal = {

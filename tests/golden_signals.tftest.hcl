@@ -175,3 +175,38 @@ run "named_monitor_group_fleet_dashboard" {
     error_message = "The fleet dashboard name must include its monitor group name."
   }
 }
+
+run "operational_availability_omits_statistic" {
+  command = plan
+
+  variables {
+    org = {
+      organization_name = "Cloud Ops Works"
+      organization_unit = "Platform"
+      environment_type  = "production"
+      environment_name  = "prod"
+    }
+    slo_settings = {
+      service_level_objectives = [
+        {
+          name = "checkout-availability"
+          type = "operational"
+          service_level_indicator = {
+            environment = "eks:platform/checkout"
+            name        = "checkout"
+            type        = "Service"
+            threshold   = 1
+            metric_type = "AVAILABILITY"
+            operations  = ["GET /health"]
+          }
+          goal = {}
+        }
+      ]
+    }
+  }
+
+  assert {
+    condition     = awscc_applicationsignals_service_level_objective.slo["checkout-availability GET -health AVAILABILITY OP"].sli.sli_metric.statistic == null
+    error_message = "Operational availability SLOs must omit the latency-only statistic."
+  }
+}
