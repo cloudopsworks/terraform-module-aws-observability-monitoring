@@ -21,7 +21,8 @@ locals {
 }
 
 include "root" {
-  path = find_in_parent_folders("{{ .RootFileName }}")
+  path   = find_in_parent_folders("{{ .RootFileName }}")
+  expose = true
 }
 
 # awscc is plugin-framework based: assume_role is a nested attribute assigned with "=", not

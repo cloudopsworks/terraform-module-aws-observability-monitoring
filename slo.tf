@@ -41,8 +41,8 @@ locals {
   slo_operational = flatten([
     for slo in local.slo_set_env : [
       for operation in try(slo.service_level_indicator.operations, []) : {
-        name        = format("%s %s op", try(slo.name, slo.service_level_indicator.name), replace(operation, "/[\\/\\$\\%\\^]/", "-"))
-        description = coalesce(try(slo.description, null), "SLO Setting for ${try(slo.name, slo.service_level_indicator.name)} - ${operation}")
+        name        = format("%s %s op", try(slo.name, slo.service_level_indicator.name), replace(replace(operation, "*", "ALL"), "/[\\/\\$\\%\\^]/", "-"))
+        description = coalesce(try(slo.description, null), "SLO Setting for ${try(slo.name, slo.service_level_indicator.name)} - ${replace(operation, "*", "ALL")}")
         source_service_key = try(slo.source_service_key,
           try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
           try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
@@ -60,7 +60,7 @@ locals {
               Type        = slo.service_level_indicator.type
             }
             metric_type    = coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")
-            operation_name = operation
+            operation_name = contains(["ALL", "*"], upper(operation)) ? null : operation
             period_seconds = coalesce(try(slo.service_level_indicator.period_seconds, null), 60)
             statistic      = coalesce(try(slo.service_level_indicator.statistic, null), "p99")
           }
