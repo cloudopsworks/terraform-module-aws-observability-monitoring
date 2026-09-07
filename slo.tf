@@ -49,7 +49,7 @@ locals {
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
-        slo_key = format("operational-%s", replace(operation, "/[\\/\\$\\%\\^\\s]+/", "-"))
+        slo_key = format("operational-%s-%s", replace(replace(operation, "*", "ALL"), "/[\\/\\$\\%\\^]/", "-"), coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))
         sli = {
           comparison_operator = coalesce(try(slo.service_level_indicator.comparison, null), try(slo.service_level_indicator.comparisson, null), "LessThan")
           metric_threshold    = try(slo.service_level_indicator.threshold, null)
