@@ -37,6 +37,7 @@ locals {
           traffic_threshold    = try(slo.traffic_threshold, null)
           saturation_threshold = try(slo.saturation_threshold, null)
           saturation_metric    = try(slo.saturation_metric, null)
+          alarm                = try(slo.alarm, {})
           account_id           = try(service.resource.account_id, null)
           published_metrics    = try(service.resource.elasticbeanstalk.published_metrics, [])
           }, try({

@@ -39,6 +39,11 @@ run "existing_eks_v2_compatibility" {
     condition     = length(output.slo_names["eks:eks-nexus-main-prod-003-usea1/checkout-prod/checkout-helm"]) == 4
     error_message = "Existing EKS Golden Signal SLOs must remain compatible."
   }
+
+  assert {
+    condition     = length(aws_cloudwatch_metric_alarm.slo) == 0
+    error_message = "Typed service SLO alarms must remain disabled unless explicitly enabled."
+  }
 }
 
 run "existing_elasticbeanstalk_v2_compatibility" {
@@ -208,5 +213,130 @@ run "operational_availability_omits_statistic" {
   assert {
     condition     = awscc_applicationsignals_service_level_objective.slo["checkout-availability GET -health AVAILABILITY OP"].sli.sli_metric.statistic == null
     error_message = "Operational availability SLOs must omit the latency-only statistic."
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_metric_alarm.slo) == 0
+    error_message = "Legacy service-level indicator alarms must remain disabled unless explicitly enabled."
+  }
+}
+
+run "legacy_slo_burn_rate_alarm" {
+  command = plan
+
+  variables {
+    org = {
+      organization_name = "Cloud Ops Works"
+      organization_unit = "Platform"
+      environment_type  = "production"
+      environment_name  = "prod"
+    }
+    slo_settings = {
+      service_level_objectives = [
+        {
+          name = "checkout-availability"
+          type = "operational"
+          service_level_indicator = {
+            environment = "eks:platform/checkout"
+            name        = "checkout"
+            type        = "Service"
+            threshold   = 1
+            metric_type = "AVAILABILITY"
+            operations  = ["GET /health"]
+            alarm = {
+              enabled                  = true
+              priority                 = 2
+              threshold                = 2
+              datapoints_to_alarm      = 3
+              period                   = 120
+              look_back_window_minutes = 30
+            }
+          }
+          goal = {}
+        }
+      ]
+    }
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_metric_alarm.slo) == 1
+    error_message = "An enabled legacy SLI burn-rate alarm must create one alarm per expanded SLO."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.slo["checkout-availability GET -health AVAILABILITY OP"].alarm_name == "[P2] [SLO] [platform] [prod] [checkout] checkout-availability GET -health AVAILABILITY OP - custom - production"
+    error_message = "Legacy SLO alarms must follow the monitor naming pattern with the SLO marker."
+  }
+
+  assert {
+    condition = (
+      aws_cloudwatch_metric_alarm.slo["checkout-availability GET -health AVAILABILITY OP"].threshold == 2 &&
+      aws_cloudwatch_metric_alarm.slo["checkout-availability GET -health AVAILABILITY OP"].datapoints_to_alarm == 3 &&
+      aws_cloudwatch_metric_alarm.slo["checkout-availability GET -health AVAILABILITY OP"].evaluation_periods == 3 &&
+      aws_cloudwatch_metric_alarm.slo["checkout-availability GET -health AVAILABILITY OP"].period == 120
+    )
+    error_message = "Legacy SLO alarm overrides must be applied."
+  }
+
+  assert {
+    condition     = one(awscc_applicationsignals_service_level_objective.slo["checkout-availability GET -health AVAILABILITY OP"].burn_rate_configurations).look_back_window_minutes == 30
+    error_message = "Enabling a legacy SLO alarm must configure its burn-rate look-back window."
+  }
+}
+
+run "service_slo_burn_rate_alarm_defaults" {
+  command = plan
+
+  variables {
+    org = {
+      organization_name = "Cloud Ops Works"
+      organization_unit = "Platform"
+      environment_type  = "production"
+      environment_name  = "prod"
+    }
+    services = {
+      orders = {
+        resource_type = "api_gateway"
+        resource = {
+          api_gateway = {
+            api_name = "orders-api"
+            stage    = "prod"
+          }
+        }
+        slos = {
+          latency = {
+            type       = "metric-query"
+            preset     = "lat_apigateway_service_requests"
+            comparison = "LessThan"
+            threshold  = 500
+            alarm = {
+              enabled = true
+            }
+          }
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.slo["orders-latency"].alarm_name == "[P1] [SLO] [platform] [prod] [orders-api] orders-latency - apigateway - production"
+    error_message = "Typed service SLO alarms must use the canonical service identity and SLO naming pattern."
+  }
+
+  assert {
+    condition = (
+      aws_cloudwatch_metric_alarm.slo["orders-latency"].threshold == 1 &&
+      aws_cloudwatch_metric_alarm.slo["orders-latency"].datapoints_to_alarm == 1 &&
+      aws_cloudwatch_metric_alarm.slo["orders-latency"].evaluation_periods == 1 &&
+      aws_cloudwatch_metric_alarm.slo["orders-latency"].period == 60 &&
+      aws_cloudwatch_metric_alarm.slo["orders-latency"].metric_name == "BurnRate" &&
+      aws_cloudwatch_metric_alarm.slo["orders-latency"].namespace == "AWS/ApplicationSignals"
+    )
+    error_message = "Typed service SLO alarm defaults must match the accepted burn-rate configuration."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.slo["orders-latency"].dimensions.BurnRateWindowMinutes == "60"
+    error_message = "Typed service SLO alarms must default the burn-rate look-back window to 60 minutes."
   }
 }
