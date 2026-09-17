@@ -594,6 +594,42 @@ examples: |-
             duration_unit: DAY
   ```
 
+  The same SLOs expressed through the legacy `slos.service_level_objectives` list
+  (Terraform `slo_settings`). The canary identity lives under
+  `service_level_indicator.synthetics`; `name` is optional and defaults to
+  `<canary_name>-synthetics-<metric_type>`:
+
+  ```yaml
+  slos:
+    service_level_objectives:
+      - name: checkout-canary-availability
+        type: synthetics
+        service_level_indicator:
+          synthetics:
+            canary_name: checkout-canary
+          metric_type: AVAILABILITY       # SuccessPercent >= 100 (defaults)
+          period_seconds: 300
+          alarm:
+            enabled: true
+            priority: 1
+        goal:
+          attainment: 99.5
+          duration: 7
+          duration_unit: DAY
+      - name: checkout-canary-latency
+        type: synthetics
+        service_level_indicator:
+          synthetics:
+            canary_name: checkout-canary
+          metric_type: LATENCY            # Duration < threshold (ms)
+          threshold: 3000
+          statistic: p95
+        goal:
+          attainment: 99.0
+          duration: 7
+          duration_unit: DAY
+  ```
+
   ## Extending with a custom CloudWatch metric
 
   ```yaml
