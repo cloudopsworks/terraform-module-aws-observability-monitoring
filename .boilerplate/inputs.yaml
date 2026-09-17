@@ -66,12 +66,13 @@ slos: {} # (Optional) SLO settings passed to the Terraform slo_settings input. D
 #         elasticbeanstalk: # (Optional) Elastic Beanstalk identity for metric-query/request-based SLOs.
 #           application_name: eb-app # (Required) Elastic Beanstalk application name.
 #           environment_name: eb-prod # (Required) Elastic Beanstalk environment name.
-#         synthetics: # (Optional) CloudWatch Synthetics canary identity for synthetics SLOs.
+#         synthetics: # (Required for synthetics) CloudWatch Synthetics canary providing the SLI; the service identity above is unchanged.
 #           canary_name: checkout-canary # (Required) Canary name used by the CanaryName CloudWatch dimension.
+#           condition: success_percent # (Optional) SLI metric. Valid values: success_percent (SuccessPercent), duration (Duration). Default: success_percent.
 #         comparison: LessThan # (Optional) SLI comparison operator. Default: LessThan; replaces deprecated comparisson.
 #         comparisson: LessThan # (Optional) Deprecated compatibility alias for comparison.
-#         threshold: 1 # (Required for metric-query/operational; Optional for synthetics) Threshold value. Synthetics default: 100 for AVAILABILITY, required for LATENCY (milliseconds).
-#         metric_type: LATENCY # (Optional for operational/synthetics) Valid values: LATENCY, AVAILABILITY. Synthetics maps AVAILABILITY to SuccessPercent and LATENCY to Duration. Default: LATENCY (operational), AVAILABILITY (synthetics).
+#         threshold: 1 # (Required for metric-query/operational; Optional for synthetics) Threshold value. Synthetics default: 100 for success_percent, required for duration (milliseconds).
+#         metric_type: LATENCY # (Optional for operational) Valid examples: LATENCY, AVAILABILITY. Default: LATENCY.
 #         statistic: p99 # (Optional) SLI statistic. Default: p99 for operational, Average for metric SLOs.
 #         operations: [] # (Optional for operational) Application Signals operation names. Default: [].
 #         latency_threshold: 300 # (Required for golden-signal) Latency threshold in milliseconds.
@@ -100,7 +101,7 @@ services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and das
 #   checkout: # (Required) Stable service key used for dashboards and cross-resource grouping.
 #     enabled: true # (Optional) Whether this service is managed. Default: true.
 #     display_name: Checkout API # (Optional) Display name for dashboards. Default: service key.
-#     resource_type: eks_service # (Required) Valid values: eks_service, lambda_function, elasticbeanstalk_environment, synthetics_canary, api_gateway, ec2_instance, application_load_balancer, custom.
+#     resource_type: eks_service # (Required) Valid values: eks_service, lambda_function, elasticbeanstalk_environment, api_gateway, ec2_instance, application_load_balancer, custom.
 #     profile: eks-appsignals # (Optional) Custom resource profile key. Default: built-in behavior.
 #     resource: # (Required) Exactly one identity block must match resource_type.
 #       account_id: "123456789012" # (Optional) Metric account ID for cross-account SLO/alarm queries. Default: provider account.
@@ -123,8 +124,6 @@ services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and das
 #           - ApplicationLatencyP99
 #           - ApplicationRequests5xx
 #           - ApplicationRequestsTotal
-#       synthetics: # (Required for synthetics_canary) CloudWatch Synthetics canary identity.
-#         canary_name: checkout-canary # (Required) Canary name used by the CanaryName CloudWatch dimension.
 #       api_gateway: # (Required for api_gateway) API Gateway REST API stage identity.
 #         api_name: orders-api # (Required) REST API name used by the ApiName CloudWatch dimension.
 #         stage: prod # (Required) Deployed API Gateway stage used by the Stage CloudWatch dimension.
@@ -174,11 +173,14 @@ services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and das
 #         enabled: true # (Optional) Whether this SLO is managed. Default: true.
 #         type: golden-signal # (Required) Valid values: golden-signal, operational, metric-query, request-based, synthetics.
 #         preset: eb_5xx_availability # (Optional) Required for metric-query/request-based SLOs.
+#         synthetics: # (Required for synthetics) CloudWatch Synthetics canary providing the SLI.
+#           canary_name: checkout-canary # (Required) Canary name used by the CanaryName CloudWatch dimension.
+#           condition: success_percent # (Optional) SLI metric. Valid values: success_percent (SuccessPercent), duration (Duration). Default: success_percent.
 #         name_override: checkout # (Optional) SLO name override. Default: service or service-slo key.
 #         description: Checkout golden signals # (Optional) SLO description. Default: generated.
 #         comparison: LessThan # (Optional) Comparison operator. Default: LessThan.
-#         threshold: 1 # (Optional) Generic threshold for metric-query/operational/synthetics SLOs. Synthetics default: 100 for AVAILABILITY, required for LATENCY (milliseconds).
-#         metric_type: LATENCY # (Optional) Operational/synthetics SLO metric type. Valid values: LATENCY, AVAILABILITY. Synthetics maps AVAILABILITY to SuccessPercent and LATENCY to Duration. Default: LATENCY (operational), AVAILABILITY (synthetics).
+#         threshold: 1 # (Optional) Generic threshold for metric-query/operational/synthetics SLOs. Synthetics default: 100 for success_percent, required for duration (milliseconds).
+#         metric_type: LATENCY # (Optional) Operational SLO metric type. Default: LATENCY.
 #         statistic: p99 # (Optional) SLI statistic. Default: p99/Average depending on SLO type.
 #         period_seconds: 300 # (Optional) SLI period in seconds. Default: 300.
 #         operations: [] # (Optional) Operational SLO operation names. Default: [].

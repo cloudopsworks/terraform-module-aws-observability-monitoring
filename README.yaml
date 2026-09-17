@@ -64,8 +64,6 @@ introduction: |-
     Application Signals metrics.
   - `services.<key>.resource_type = elasticbeanstalk_environment` for Elastic Beanstalk
     enhanced-health metrics and request-based SLOs.
-  - `services.<key>.resource_type = synthetics_canary` for CloudWatch Synthetics canary
-    SuccessPercent and Duration SLOs.
   - `services.<key>.resource_type = api_gateway` for API Gateway REST API stage metrics.
   - `services.<key>.resource_type = ec2_instance` for EC2 status, traffic, and CPU metrics.
   - `services.<key>.resource_type = application_load_balancer` for ALB latency,
@@ -555,49 +553,60 @@ examples: |-
             duration_unit: DAY
   ```
 
-  ## v2 CloudWatch Synthetics canary SLOs
+  ## Synthetics canary SLOs
 
-  Synthetics canaries publish `SuccessPercent` and `Duration` under the
-  `CloudWatchSynthetics` namespace with a `CanaryName` dimension. The `synthetics` SLO
-  type builds a period-based SLI from either metric: `metric_type: AVAILABILITY`
-  (default) uses `SuccessPercent` with `GreaterThanOrEqualTo 100`, and
-  `metric_type: LATENCY` uses `Duration` with `LessThan <threshold>` milliseconds. The
-  canary itself is not created by this module; the service key is derived as
-  `synthetics:<canary_name>` unless `source_service_key` is set explicitly.
+  `type: synthetics` keeps the service identity (EKS, Lambda, Elastic Beanstalk, or a
+  generic `source_service_key`) and sources the SLI from a CloudWatch Synthetics canary
+  instead of Application Signals. The canary is referenced through `synthetics.canary_name`
+  and the condition selects the metric under the `CloudWatchSynthetics` namespace:
+
+  | `condition`       | Metric           | Default comparison     | Default threshold    |
+  |-------------------|------------------|------------------------|----------------------|
+  | `success_percent` | `SuccessPercent` | `GreaterThanOrEqualTo` | `100`                |
+  | `duration`        | `Duration`       | `LessThan`             | required, in ms      |
+
+  The SLO groups under the owning service on dashboards and burn-rate alarms; the canary
+  itself is not created by this module.
 
   ```yaml
   services:
-    checkout-canary:
-      resource_type: synthetics_canary
+    checkout:
+      resource_type: eks_service
       resource:
-        synthetics:
-          canary_name: checkout-canary
+        eks:
+          cluster_name: eks-prod-use1
+          namespace: checkout-prod
+          service_name: checkout-helm
       slos:
-        availability:
+        golden:
+          type: golden-signal
+          latency_threshold: 300
+          traffic_threshold: 1000
+          saturation_threshold: 85
+        canary_availability:
           type: synthetics
-          metric_type: AVAILABILITY
+          synthetics:
+            canary_name: checkout-canary
+            condition: success_percent
           goal:
             attainment: 99.5
-            duration: 7
-            duration_unit: DAY
           alarm:
             enabled: true
             priority: 1
-        latency:
+        canary_duration:
           type: synthetics
-          metric_type: LATENCY
+          synthetics:
+            canary_name: checkout-canary
+            condition: duration
           threshold: 3000
           statistic: p95
           goal:
             attainment: 99.0
-            duration: 7
-            duration_unit: DAY
   ```
 
-  The same SLOs expressed through the legacy `slos.service_level_objectives` list
-  (Terraform `slo_settings`). The canary identity lives under
-  `service_level_indicator.synthetics`; `name` is optional and defaults to
-  `<canary_name>-synthetics-<metric_type>`:
+  The same SLOs through the legacy `slos.service_level_objectives` list (Terraform
+  `slo_settings`). The identity block picks the service key exactly as for the other SLO
+  types; omit it and set `source_service_key` for a generic service:
 
   ```yaml
   slos:
@@ -605,29 +614,29 @@ examples: |-
       - name: checkout-canary-availability
         type: synthetics
         service_level_indicator:
+          eks:
+            cluster_name: eks-prod-use1
+            namespace: checkout-prod
+            name: checkout-helm
           synthetics:
             canary_name: checkout-canary
-          metric_type: AVAILABILITY       # SuccessPercent >= 100 (defaults)
-          period_seconds: 300
+            condition: success_percent
           alarm:
             enabled: true
             priority: 1
         goal:
           attainment: 99.5
-          duration: 7
-          duration_unit: DAY
-      - name: checkout-canary-latency
+      - name: public-site-canary-duration
         type: synthetics
+        source_service_key: custom:public-site
         service_level_indicator:
           synthetics:
-            canary_name: checkout-canary
-          metric_type: LATENCY            # Duration < threshold (ms)
+            canary_name: public-site-canary
+            condition: duration
           threshold: 3000
           statistic: p95
         goal:
           attainment: 99.0
-          duration: 7
-          duration_unit: DAY
   ```
 
   ## Extending with a custom CloudWatch metric

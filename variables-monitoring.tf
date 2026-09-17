@@ -20,10 +20,10 @@
 #           name: "my-service"                     # (Required) Kubernetes service name.
 #         lambda:                                  # (Optional) Lambda service identity.
 #           function_name: "my-function"           # (Required) Lambda function name.
-#         synthetics:                              # (Optional) CloudWatch Synthetics canary identity, used by type synthetics.
-#           canary_name: "my-canary"               # (Required) Canary name used by the CanaryName CloudWatch dimension.
-#         metric_type: AVAILABILITY                # (Optional for synthetics) Valid values: AVAILABILITY (SuccessPercent), LATENCY (Duration). Default: AVAILABILITY.
-#         threshold: 100                           # (Optional for synthetics) SLI threshold. Default: 100 for AVAILABILITY; required for LATENCY (milliseconds).
+#         synthetics:                              # (Required for synthetics) Canary providing the SLI; service identity above is unchanged.
+#           canary_name: "my-canary"               # (Required) CloudWatch Synthetics canary name (CanaryName dimension).
+#           condition: success_percent             # (Optional) Valid values: success_percent, duration. Default: success_percent.
+#         threshold: 100                           # (Optional for synthetics) SLI threshold. Default: 100 for success_percent; required for duration (milliseconds).
 #         comparison: LessThan                     # (Optional) Comparison operator. Default: LessThan.
 #         latency_threshold: 100                   # (Required for golden-signal) Latency threshold in milliseconds.
 #         errors_threshold: 5                      # (Required for golden-signal) Error threshold.
@@ -96,13 +96,11 @@ variable "alarm_targets" {
 ## Typed service observability configuration - yaml format
 # services:
 #   orders-api:
-#     resource_type: api_gateway                    # (Required) Valid values: eks_service, lambda_function, elasticbeanstalk_environment, synthetics_canary, api_gateway, ec2_instance, application_load_balancer, custom.
+#     resource_type: api_gateway                    # (Required) Valid values: eks_service, lambda_function, elasticbeanstalk_environment, api_gateway, ec2_instance, application_load_balancer, custom.
 #     resource:
 #       api_gateway:                                # (Required for api_gateway) API Gateway REST API stage identity.
 #         api_name: orders-api                      # (Required) REST API name used by the ApiName CloudWatch dimension.
 #         stage: prod                               # (Required) API stage used by the Stage CloudWatch dimension.
-#       synthetics:                                 # (Required for synthetics_canary) CloudWatch Synthetics canary identity.
-#         canary_name: checkout-canary              # (Required) Canary name used by the CanaryName CloudWatch dimension.
 #       ec2:                                        # (Required for ec2_instance) EC2 instance identity.
 #         instance_id: i-0123456789abcdef0          # (Required) EC2 instance ID used by the InstanceId CloudWatch dimension.
 #       load_balancer:                              # (Required for application_load_balancer) Application Load Balancer identity.
@@ -118,11 +116,13 @@ variable "alarm_targets" {
 #         preset: lat_apigateway_service_requests   # (Required for metric-query) Direct metric preset.
 #         comparison: LessThan                      # (Optional) SLI comparison operator. Default: LessThan.
 #         threshold: 500                            # (Required for metric-query) SLI threshold.
-#       availability:
-#         type: synthetics                          # (Required) Synthetics canary SLO; requires resource.synthetics.
-#         metric_type: AVAILABILITY                 # (Optional) Valid values: AVAILABILITY (SuccessPercent), LATENCY (Duration). Default: AVAILABILITY.
-#         comparison: GreaterThanOrEqualTo          # (Optional) SLI comparison operator. Default: GreaterThanOrEqualTo for AVAILABILITY, LessThan for LATENCY.
-#         threshold: 100                            # (Optional) SLI threshold. Default: 100 for AVAILABILITY; required for LATENCY (milliseconds).
+#       canary:
+#         type: synthetics                          # (Required) SLI sourced from a CloudWatch Synthetics canary.
+#         synthetics:                               # (Required for synthetics) Canary reference.
+#           canary_name: orders-canary              # (Required) Canary name (CanaryName dimension).
+#           condition: success_percent              # (Optional) Valid values: success_percent, duration. Default: success_percent.
+#         comparison: GreaterThanOrEqualTo          # (Optional) Default: GreaterThanOrEqualTo for success_percent, LessThan for duration.
+#         threshold: 100                            # (Optional) Default: 100 for success_percent; required for duration (milliseconds).
 #         statistic: Average                        # (Optional) SLI statistic. Default: Average.
 #         period_seconds: 300                       # (Optional) SLI period in seconds. Default: 300.
 #         alarm:                                     # (Optional) Application Signals burn-rate alarm settings. Default: disabled.
@@ -162,10 +162,6 @@ variable "services" {
         platform                 = optional(string, "linux")
         enhanced_health_required = optional(bool, true)
         published_metrics        = optional(set(string), ["EnvironmentHealth"])
-      }))
-
-      synthetics = optional(object({
-        canary_name = string
       }))
 
       api_gateway = optional(object({
@@ -256,6 +252,10 @@ variable "services" {
       traffic_threshold    = optional(number)
       saturation_threshold = optional(number)
       saturation_metric    = optional(string)
+      synthetics = optional(object({
+        canary_name = string
+        condition   = optional(string, "success_percent")
+      }))
       alarm = optional(object({
         enabled                  = optional(bool, false)
         priority                 = optional(number, 1)
@@ -300,7 +300,6 @@ variable "services" {
         try(service.resource.eks, null) != null ? "eks_service" : "",
         try(service.resource.lambda, null) != null ? "lambda_function" : "",
         try(service.resource.elasticbeanstalk, null) != null ? "elasticbeanstalk_environment" : "",
-        try(service.resource.synthetics, null) != null ? "synthetics_canary" : "",
         try(service.resource.api_gateway, null) != null ? "api_gateway" : "",
         try(service.resource.ec2, null) != null ? "ec2_instance" : "",
         try(service.resource.load_balancer, null) != null ? "application_load_balancer" : "",
