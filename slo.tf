@@ -34,6 +34,14 @@ locals {
           name        = try(slo.service_level_indicator.name, slo.service_level_indicator.elasticbeanstalk.environment_name)
           type        = try(slo.service_level_indicator.type, "Service")
         })
+      }, {}),
+      try({
+        source_service_key = try(slo.source_service_key, format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name))
+        service_level_indicator = merge(slo.service_level_indicator, {
+          environment = try(slo.service_level_indicator.environment, "synthetics:default")
+          name        = try(slo.service_level_indicator.name, slo.service_level_indicator.synthetics.canary_name)
+          type        = try(slo.service_level_indicator.type, "Service")
+        })
       }, {})
     )
   ]
@@ -47,6 +55,7 @@ locals {
           try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
           try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+          try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = format("operational-%s-%s", replace(replace(operation, "*", "ALL"), "/[\\/\\$\\%\\^]/", "-"), coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))
@@ -85,10 +94,16 @@ locals {
   slo_golden_signals = flatten([
     for slo in local.slo_set_env : [
       {
-        name               = format("gs-latency-%s", lower(try(slo.name, slo.service_level_indicator.name)))
-        description        = coalesce(try(slo.description, null), "[Golden Signals] [Latency] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
-        source_service_key = try(slo.source_service_key, "")
-        slo_key            = "golden-latency"
+        name        = format("gs-latency-%s", lower(try(slo.name, slo.service_level_indicator.name)))
+        description = coalesce(try(slo.description, null), "[Golden Signals] [Latency] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
+        source_service_key = try(slo.source_service_key,
+          try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
+          try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
+          try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+          try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+          "custom:${try(slo.name, slo.service_level_indicator.name)}"
+        )
+        slo_key = "golden-latency"
         sli = {
           comparison_operator = coalesce(try(slo.service_level_indicator.comparison, null), try(slo.service_level_indicator.comparisson, null), "LessThan")
           metric_threshold    = slo.service_level_indicator.latency_threshold
@@ -134,10 +149,16 @@ locals {
         tags  = try(slo.tags, {})
       },
       {
-        name               = format("gs-errors-%s", lower(try(slo.name, slo.service_level_indicator.name)))
-        description        = coalesce(try(slo.description, null), "[Golden Signals] [Errors] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
-        source_service_key = try(slo.source_service_key, "")
-        slo_key            = "golden-errors"
+        name        = format("gs-errors-%s", lower(try(slo.name, slo.service_level_indicator.name)))
+        description = coalesce(try(slo.description, null), "[Golden Signals] [Errors] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
+        source_service_key = try(slo.source_service_key,
+          try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
+          try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
+          try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+          try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+          "custom:${try(slo.name, slo.service_level_indicator.name)}"
+        )
+        slo_key = "golden-errors"
         request_based_sli = {
           request_based_sli_metric = {
             monitored_request_count_metric = {
@@ -207,10 +228,16 @@ locals {
         tags  = try(slo.tags, {})
       },
       {
-        name               = format("gs-traffic-%s", lower(try(slo.name, slo.service_level_indicator.name)))
-        description        = coalesce(try(slo.description, null), "[Golden Signals] [Traffic] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
-        source_service_key = try(slo.source_service_key, "")
-        slo_key            = "golden-traffic"
+        name        = format("gs-traffic-%s", lower(try(slo.name, slo.service_level_indicator.name)))
+        description = coalesce(try(slo.description, null), "[Golden Signals] [Traffic] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
+        source_service_key = try(slo.source_service_key,
+          try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
+          try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
+          try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+          try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+          "custom:${try(slo.name, slo.service_level_indicator.name)}"
+        )
+        slo_key = "golden-traffic"
         sli = {
           comparison_operator = coalesce(try(slo.service_level_indicator.traffic_comparison, null), try(slo.service_level_indicator.comparison, null), try(slo.service_level_indicator.comparisson, null), "LessThanOrEqualTo")
           metric_threshold    = slo.service_level_indicator.traffic_threshold
@@ -256,10 +283,16 @@ locals {
         tags  = try(slo.tags, {})
       },
       {
-        name               = format("gs-saturation-%s", lower(try(slo.name, slo.service_level_indicator.name)))
-        description        = coalesce(try(slo.description, null), "[Golden Signals] [Saturation] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
-        source_service_key = try(slo.source_service_key, "")
-        slo_key            = "golden-saturation"
+        name        = format("gs-saturation-%s", lower(try(slo.name, slo.service_level_indicator.name)))
+        description = coalesce(try(slo.description, null), "[Golden Signals] [Saturation] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
+        source_service_key = try(slo.source_service_key,
+          try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
+          try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
+          try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+          try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+          "custom:${try(slo.name, slo.service_level_indicator.name)}"
+        )
+        slo_key = "golden-saturation"
         sli = {
           comparison_operator = coalesce(try(slo.service_level_indicator.comparison, null), try(slo.service_level_indicator.comparisson, null), "LessThan")
           metric_threshold    = slo.service_level_indicator.saturation_threshold
@@ -324,10 +357,16 @@ locals {
 
   slo_metric_query = [
     for slo in local.slo_set_env : {
-      name               = try(slo.name, format("%s-metric-query", slo.service_level_indicator.name))
-      description        = coalesce(try(slo.description, null), "Metric query SLO for ${try(slo.name, slo.service_level_indicator.name)}")
-      source_service_key = try(slo.source_service_key, "")
-      slo_key            = try(slo.name, "metric-query")
+      name        = try(slo.name, format("%s-metric-query", slo.service_level_indicator.name))
+      description = coalesce(try(slo.description, null), "Metric query SLO for ${try(slo.name, slo.service_level_indicator.name)}")
+      source_service_key = try(slo.source_service_key,
+        try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
+        try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
+        try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+        try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+        "custom:${try(slo.name, slo.service_level_indicator.name)}"
+      )
+      slo_key = try(slo.name, "metric-query")
       sli = {
         comparison_operator = coalesce(try(slo.service_level_indicator.comparison, null), try(slo.service_level_indicator.comparisson, null), "LessThan")
         metric_threshold    = slo.service_level_indicator.threshold
@@ -376,10 +415,16 @@ locals {
 
   slo_request_based = [
     for slo in local.slo_set_env : {
-      name               = try(slo.name, format("%s-request-based", slo.service_level_indicator.name))
-      description        = coalesce(try(slo.description, null), "Request-based SLO for ${try(slo.name, slo.service_level_indicator.name)}")
-      source_service_key = try(slo.source_service_key, "")
-      slo_key            = try(slo.name, "request-based")
+      name        = try(slo.name, format("%s-request-based", slo.service_level_indicator.name))
+      description = coalesce(try(slo.description, null), "Request-based SLO for ${try(slo.name, slo.service_level_indicator.name)}")
+      source_service_key = try(slo.source_service_key,
+        try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
+        try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
+        try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+        try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+        "custom:${try(slo.name, slo.service_level_indicator.name)}"
+      )
+      slo_key = try(slo.name, "request-based")
       request_based_sli = {
         request_based_sli_metric = {
           monitored_request_count_metric = {
@@ -444,7 +489,63 @@ locals {
     if try(slo.enabled, true) && slo.type == "request-based" && try(slo.preset, null) == "eb_5xx_availability"
   ]
 
-  slo_all = concat(local.slo_operational, local.slo_golden_signals, local.slo_metric_query, local.slo_request_based)
+  # CloudWatch Synthetics canary SLOs - SuccessPercent (AVAILABILITY) or Duration (LATENCY)
+  slo_synthetics = [
+    for slo in local.slo_set_env : {
+      name        = try(slo.name, format("%s-synthetics-%s", slo.service_level_indicator.synthetics.canary_name, lower(coalesce(try(slo.service_level_indicator.metric_type, null), "AVAILABILITY"))))
+      description = coalesce(try(slo.description, null), "[Synthetics] [${upper(coalesce(try(slo.service_level_indicator.metric_type, null), "AVAILABILITY"))}] SLO for canary ${slo.service_level_indicator.synthetics.canary_name}")
+      source_service_key = try(slo.source_service_key,
+        try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
+        try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
+        try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+        try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+        "custom:${try(slo.name, slo.service_level_indicator.name)}"
+      )
+      slo_key = format("synthetics-%s", lower(coalesce(try(slo.service_level_indicator.metric_type, null), "AVAILABILITY")))
+      sli = {
+        comparison_operator = coalesce(try(slo.service_level_indicator.comparison, null), try(slo.service_level_indicator.comparisson, null), upper(coalesce(try(slo.service_level_indicator.metric_type, null), "AVAILABILITY")) == "AVAILABILITY" ? "GreaterThanOrEqualTo" : "LessThan")
+        metric_threshold    = try(slo.service_level_indicator.threshold, null) != null ? slo.service_level_indicator.threshold : (upper(coalesce(try(slo.service_level_indicator.metric_type, null), "AVAILABILITY")) == "AVAILABILITY" ? 100 : null)
+        sli_metric = {
+          metric_data_queries = [
+            {
+              account_id = try(slo.service_level_indicator.account_id, null)
+              id         = "syntheticsQuery1"
+              metric_stat = {
+                metric = {
+                  namespace   = "CloudWatchSynthetics"
+                  metric_name = upper(coalesce(try(slo.service_level_indicator.metric_type, null), "AVAILABILITY")) == "AVAILABILITY" ? "SuccessPercent" : "Duration"
+                  dimensions = [
+                    {
+                      name  = "CanaryName"
+                      value = slo.service_level_indicator.synthetics.canary_name
+                    }
+                  ]
+                }
+                period = coalesce(try(slo.service_level_indicator.period_seconds, null), 300)
+                stat   = coalesce(try(slo.service_level_indicator.statistic, null), "Average")
+              }
+              return_data = true
+            }
+          ]
+        }
+      }
+      goal = {
+        attainment_goal = coalesce(try(slo.goal.attainment, null), 99.9)
+        interval = {
+          rolling_interval = {
+            duration      = coalesce(try(slo.goal.duration, null), 7)
+            duration_unit = coalesce(try(slo.goal.duration_unit, null), "DAY")
+          }
+        }
+        warning_threshold = coalesce(try(slo.goal.warning_threshold, null), 80)
+      }
+      alarm = try(slo.service_level_indicator.alarm, {})
+      tags  = try(slo.tags, {})
+    }
+    if try(slo.enabled, true) && slo.type == "synthetics"
+  ]
+
+  slo_all = concat(local.slo_operational, local.slo_golden_signals, local.slo_metric_query, local.slo_request_based, local.slo_synthetics)
 }
 
 resource "awscc_applicationsignals_service_level_objective" "slo" {

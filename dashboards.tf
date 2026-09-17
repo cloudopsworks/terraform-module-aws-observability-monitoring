@@ -16,10 +16,11 @@ locals {
         try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
         try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
         try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+        try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
         format("custom:%s", try(slo.name, slo.service_level_indicator.name))
       )
       display_name  = try(slo.service_level_indicator.name, slo.name)
-      resource_type = try(slo.resource_type, try(slo.service_level_indicator.eks, null) != null ? "eks_service" : try(slo.service_level_indicator.lambda, null) != null ? "lambda_function" : try(slo.service_level_indicator.elasticbeanstalk, null) != null ? "elasticbeanstalk_environment" : "custom")
+      resource_type = try(slo.resource_type, try(slo.service_level_indicator.eks, null) != null ? "eks_service" : try(slo.service_level_indicator.lambda, null) != null ? "lambda_function" : try(slo.service_level_indicator.elasticbeanstalk, null) != null ? "elasticbeanstalk_environment" : try(slo.service_level_indicator.synthetics, null) != null ? "synthetics_canary" : "custom")
       service_name  = try(slo.service_level_indicator.name, slo.name)
       dashboard     = {}
       tags          = try(slo.tags, {})

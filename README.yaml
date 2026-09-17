@@ -64,6 +64,8 @@ introduction: |-
     Application Signals metrics.
   - `services.<key>.resource_type = elasticbeanstalk_environment` for Elastic Beanstalk
     enhanced-health metrics and request-based SLOs.
+  - `services.<key>.resource_type = synthetics_canary` for CloudWatch Synthetics canary
+    SuccessPercent and Duration SLOs.
   - `services.<key>.resource_type = api_gateway` for API Gateway REST API stage metrics.
   - `services.<key>.resource_type = ec2_instance` for EC2 status, traffic, and CPU metrics.
   - `services.<key>.resource_type = application_load_balancer` for ALB latency,
@@ -71,7 +73,7 @@ introduction: |-
   - `services.<key>.monitors` configures alarms/dashboard widgets from built-in
     presets or inline custom metrics.
   - `services.<key>.slos` configures service-scoped Golden Signal, operational,
-    metric-query, or request-based SLOs.
+    metric-query, request-based, or synthetics SLOs.
   - `alarm.enabled: true` within a legacy service-level indicator or typed service SLO
     creates an Application Signals burn-rate alarm using the standard alarm name and
     action targets.
@@ -549,6 +551,45 @@ examples: |-
           preset: eb_5xx_availability
           goal:
             attainment: 99.5
+            duration: 7
+            duration_unit: DAY
+  ```
+
+  ## v2 CloudWatch Synthetics canary SLOs
+
+  Synthetics canaries publish `SuccessPercent` and `Duration` under the
+  `CloudWatchSynthetics` namespace with a `CanaryName` dimension. The `synthetics` SLO
+  type builds a period-based SLI from either metric: `metric_type: AVAILABILITY`
+  (default) uses `SuccessPercent` with `GreaterThanOrEqualTo 100`, and
+  `metric_type: LATENCY` uses `Duration` with `LessThan <threshold>` milliseconds. The
+  canary itself is not created by this module; the service key is derived as
+  `synthetics:<canary_name>` unless `source_service_key` is set explicitly.
+
+  ```yaml
+  services:
+    checkout-canary:
+      resource_type: synthetics_canary
+      resource:
+        synthetics:
+          canary_name: checkout-canary
+      slos:
+        availability:
+          type: synthetics
+          metric_type: AVAILABILITY
+          goal:
+            attainment: 99.5
+            duration: 7
+            duration_unit: DAY
+          alarm:
+            enabled: true
+            priority: 1
+        latency:
+          type: synthetics
+          metric_type: LATENCY
+          threshold: 3000
+          statistic: p95
+          goal:
+            attainment: 99.0
             duration: 7
             duration_unit: DAY
   ```

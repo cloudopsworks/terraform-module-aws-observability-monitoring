@@ -19,6 +19,7 @@ locals {
           try(format("eks:%s/%s/%s", service.resource.eks.cluster_name, service.resource.eks.namespace, service.resource.eks.service_name), null),
           try(format("lambda:%s", service.resource.lambda.function_name), null),
           try(format("elasticbeanstalk:%s/%s", service.resource.elasticbeanstalk.application_name, service.resource.elasticbeanstalk.environment_name), null),
+          try(format("synthetics:%s", service.resource.synthetics.canary_name), null),
           try(format("apigateway:%s/%s", service.resource.api_gateway.api_name, service.resource.api_gateway.stage), null),
           try(format("ec2:%s", service.resource.ec2.instance_id), null),
           try(format("alb:%s", service.resource.load_balancer.arn_suffix), null),
@@ -63,6 +64,13 @@ locals {
             }
             environment = coalesce(try(service.resource.app_signals.environment, null), format("elasticbeanstalk:%s/%s", service.resource.elasticbeanstalk.application_name, service.resource.elasticbeanstalk.environment_name))
             name        = coalesce(try(service.resource.app_signals.service, null), service.resource.elasticbeanstalk.environment_name)
+            type        = "Service"
+            }, {}), try({
+            synthetics = {
+              canary_name = service.resource.synthetics.canary_name
+            }
+            environment = coalesce(try(service.resource.app_signals.environment, null), "synthetics:default")
+            name        = coalesce(try(service.resource.app_signals.service, null), service.resource.synthetics.canary_name)
             type        = "Service"
             }, {}), try({
             api_gateway = {
