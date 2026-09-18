@@ -42,9 +42,28 @@ locals {
           name        = try(slo.service_level_indicator.name, slo.service_level_indicator.synthetics.canary_name)
           type        = try(slo.service_level_indicator.type, "Service")
         })
+      }, {}),
+      try({
+        source_service_key = try(slo.source_service_key, format("rum:%s", slo.service_level_indicator.rum.app_monitor_name))
+        service_level_indicator = merge(slo.service_level_indicator, {
+          environment = try(slo.service_level_indicator.environment, "rum:default")
+          name        = try(slo.service_level_indicator.name, slo.service_level_indicator.rum.app_monitor_name)
+          type        = try(slo.service_level_indicator.type, "Service")
+        })
       }, {})
     )
   ]
+
+  # CloudWatch RUM period-based SLI catalog keyed by metric_type; APDEX is request-based and built separately
+  rum_sli_catalog = {
+    LATENCY     = { metric_name = "PerformanceNavigationDuration", statistic = "Average", comparison = "LessThan", threshold = 3000 }
+    JS_ERRORS   = { metric_name = "JsErrorCount", statistic = "Sum", comparison = "LessThan", threshold = null }
+    HTTP_ERRORS = { metric_name = "HttpErrorCount", statistic = "Sum", comparison = "LessThan", threshold = null }
+    LCP         = { metric_name = "WebVitalsLargestContentfulPaint", statistic = "p75", comparison = "LessThan", threshold = 2500 }
+    CLS         = { metric_name = "WebVitalsCumulativeLayoutShift", statistic = "p75", comparison = "LessThan", threshold = 0.1 }
+    FID         = { metric_name = "WebVitalsFirstInputDelay", statistic = "p75", comparison = "LessThan", threshold = 100 }
+    INP         = { metric_name = "WebVitalsInteractionToNextPaint", statistic = "p75", comparison = "LessThan", threshold = 200 }
+  }
 
   slo_operational = flatten([
     for slo in local.slo_set_env : [
@@ -56,6 +75,7 @@ locals {
           try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+          try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = format("operational-%s-%s", replace(replace(operation, "*", "ALL"), "/[\\/\\$\\%\\^]/", "-"), coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))
@@ -101,6 +121,7 @@ locals {
           try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+          try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = "golden-latency"
@@ -156,6 +177,7 @@ locals {
           try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+          try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = "golden-errors"
@@ -235,6 +257,7 @@ locals {
           try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+          try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = "golden-traffic"
@@ -290,6 +313,7 @@ locals {
           try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+          try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = "golden-saturation"
@@ -364,6 +388,7 @@ locals {
         try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
         try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
         try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+        try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
         "custom:${try(slo.name, slo.service_level_indicator.name)}"
       )
       slo_key = try(slo.name, "metric-query")
@@ -422,6 +447,7 @@ locals {
         try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
         try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
         try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+        try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
         "custom:${try(slo.name, slo.service_level_indicator.name)}"
       )
       slo_key = try(slo.name, "request-based")
@@ -499,6 +525,7 @@ locals {
         try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
         try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
         try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+        try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
         "custom:${try(slo.name, slo.service_level_indicator.name)}"
       )
       slo_key = format("synthetics-%s", lower(coalesce(try(slo.service_level_indicator.metric_type, null), "AVAILABILITY")))
@@ -545,7 +572,147 @@ locals {
     if try(slo.enabled, true) && slo.type == "synthetics"
   ]
 
-  slo_all = concat(local.slo_operational, local.slo_golden_signals, local.slo_metric_query, local.slo_request_based, local.slo_synthetics)
+  # CloudWatch RUM app monitor SLOs - period-based (LATENCY, web vitals, error counts)
+  slo_rum_metric = [
+    for slo in local.slo_set_env : {
+      name        = try(slo.name, format("%s-rum-%s", slo.service_level_indicator.rum.app_monitor_name, replace(lower(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")), "_", "-")))
+      description = coalesce(try(slo.description, null), "[RUM] [${upper(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))}] SLO for app monitor ${slo.service_level_indicator.rum.app_monitor_name}")
+      source_service_key = try(slo.source_service_key,
+        try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
+        try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
+        try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+        try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+        try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+        "custom:${try(slo.name, slo.service_level_indicator.name)}"
+      )
+      slo_key = format("rum-%s", replace(lower(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")), "_", "-"))
+      sli = {
+        comparison_operator = coalesce(try(slo.service_level_indicator.comparison, null), try(slo.service_level_indicator.comparisson, null), local.rum_sli_catalog[upper(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))].comparison)
+        metric_threshold    = try(slo.service_level_indicator.threshold, null) != null ? slo.service_level_indicator.threshold : local.rum_sli_catalog[upper(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))].threshold
+        sli_metric = {
+          metric_data_queries = [
+            {
+              account_id = try(slo.service_level_indicator.account_id, null)
+              id         = "rumQuery1"
+              metric_stat = {
+                metric = {
+                  namespace   = "AWS/RUM"
+                  metric_name = local.rum_sli_catalog[upper(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))].metric_name
+                  dimensions = [
+                    {
+                      name  = "application_name"
+                      value = slo.service_level_indicator.rum.app_monitor_name
+                    }
+                  ]
+                }
+                period = coalesce(try(slo.service_level_indicator.period_seconds, null), 300)
+                stat   = coalesce(try(slo.service_level_indicator.statistic, null), local.rum_sli_catalog[upper(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))].statistic)
+              }
+              return_data = true
+            }
+          ]
+        }
+      }
+      goal = {
+        attainment_goal = coalesce(try(slo.goal.attainment, null), 99.9)
+        interval = {
+          rolling_interval = {
+            duration      = coalesce(try(slo.goal.duration, null), 7)
+            duration_unit = coalesce(try(slo.goal.duration_unit, null), "DAY")
+          }
+        }
+        warning_threshold = coalesce(try(slo.goal.warning_threshold, null), 80)
+      }
+      alarm = try(slo.service_level_indicator.alarm, {})
+      tags  = try(slo.tags, {})
+    }
+    if try(slo.enabled, true) && slo.type == "rum" && upper(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")) != "APDEX"
+  ]
+
+  # CloudWatch RUM app monitor SLOs - APDEX request-based (frustrated navigations vs. all navigations)
+  slo_rum_apdex = [
+    for slo in local.slo_set_env : {
+      name        = try(slo.name, format("%s-rum-apdex", slo.service_level_indicator.rum.app_monitor_name))
+      description = coalesce(try(slo.description, null), "[RUM] [APDEX] SLO for app monitor ${slo.service_level_indicator.rum.app_monitor_name}")
+      source_service_key = try(slo.source_service_key,
+        try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
+        try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
+        try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+        try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+        try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+        "custom:${try(slo.name, slo.service_level_indicator.name)}"
+      )
+      slo_key = "rum-apdex"
+      request_based_sli = {
+        request_based_sli_metric = {
+          monitored_request_count_metric = {
+            bad_count_metric = [
+              {
+                account_id = try(slo.service_level_indicator.account_id, null)
+                id         = "frustratedCount"
+                metric_stat = {
+                  metric = {
+                    namespace   = "AWS/RUM"
+                    metric_name = "NavigationFrustratedTransaction"
+                    dimensions = [
+                      {
+                        name  = "application_name"
+                        value = slo.service_level_indicator.rum.app_monitor_name
+                      }
+                    ]
+                  }
+                  period = coalesce(try(slo.service_level_indicator.period_seconds, null), 300)
+                  stat   = "Sum"
+                }
+                return_data = true
+              }
+            ]
+          }
+          total_request_count_metric = concat([
+            for nav in ["Satisfied", "Tolerated", "Frustrated"] : {
+              account_id = try(slo.service_level_indicator.account_id, null)
+              id         = format("%sCount", lower(nav))
+              metric_stat = {
+                metric = {
+                  namespace   = "AWS/RUM"
+                  metric_name = format("Navigation%sTransaction", nav)
+                  dimensions = [
+                    {
+                      name  = "application_name"
+                      value = slo.service_level_indicator.rum.app_monitor_name
+                    }
+                  ]
+                }
+                period = coalesce(try(slo.service_level_indicator.period_seconds, null), 300)
+                stat   = "Sum"
+              }
+              return_data = false
+              }], [{
+              account_id  = try(slo.service_level_indicator.account_id, null)
+              id          = "totalCount"
+              expression  = "satisfiedCount + toleratedCount + frustratedCount"
+              return_data = true
+            }]
+          )
+        }
+      }
+      goal = {
+        attainment_goal = coalesce(try(slo.goal.attainment, null), 99.9)
+        interval = {
+          rolling_interval = {
+            duration      = coalesce(try(slo.goal.duration, null), 7)
+            duration_unit = coalesce(try(slo.goal.duration_unit, null), "DAY")
+          }
+        }
+        warning_threshold = coalesce(try(slo.goal.warning_threshold, null), 80)
+      }
+      alarm = try(slo.service_level_indicator.alarm, {})
+      tags  = try(slo.tags, {})
+    }
+    if try(slo.enabled, true) && slo.type == "rum" && upper(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")) == "APDEX"
+  ]
+
+  slo_all = concat(local.slo_operational, local.slo_golden_signals, local.slo_metric_query, local.slo_request_based, local.slo_synthetics, local.slo_rum_metric, local.slo_rum_apdex)
 }
 
 resource "awscc_applicationsignals_service_level_objective" "slo" {

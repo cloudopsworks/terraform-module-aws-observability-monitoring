@@ -12,7 +12,7 @@
 #   service_level_objectives:
 #     - name: "Golden Signal SLO"
 #       description: "Service Level Objective 1"   # (Optional) Description for the SLO. Default: generated from the SLO name.
-#       type: golden-signal                        # (Required) SLO type. Valid values: golden-signal, operational, metric-query, request-based, synthetics.
+#       type: golden-signal                        # (Required) SLO type. Valid values: golden-signal, operational, metric-query, request-based, synthetics, rum.
 #       service_level_indicator:
 #         eks:                                     # (Optional) EKS service identity.
 #           cluster_name: "my-cluster"             # (Required) EKS cluster name.
@@ -22,8 +22,10 @@
 #           function_name: "my-function"           # (Required) Lambda function name.
 #         synthetics:                              # (Optional) CloudWatch Synthetics canary identity, used by type synthetics.
 #           canary_name: "my-canary"               # (Required) Canary name used by the CanaryName CloudWatch dimension.
-#         metric_type: AVAILABILITY                # (Optional for synthetics) Valid values: AVAILABILITY (SuccessPercent), LATENCY (Duration). Default: AVAILABILITY.
-#         threshold: 100                           # (Optional for synthetics) SLI threshold. Default: 100 for AVAILABILITY; required for LATENCY (milliseconds).
+#         rum:                                     # (Optional) CloudWatch RUM app monitor identity, used by type rum.
+#           app_monitor_name: "my-web-app"         # (Required) App monitor name used by the application_name CloudWatch dimension.
+#         metric_type: AVAILABILITY                # (Optional for synthetics/rum) synthetics: AVAILABILITY (SuccessPercent), LATENCY (Duration); default AVAILABILITY. rum: LATENCY, LCP, CLS, FID, INP, JS_ERRORS, HTTP_ERRORS, APDEX; default LATENCY.
+#         threshold: 100                           # (Optional for synthetics/rum) SLI threshold. Defaults: synthetics AVAILABILITY 100; rum LATENCY 3000, LCP 2500, CLS 0.1, FID 100, INP 200. Required for synthetics LATENCY, JS_ERRORS, HTTP_ERRORS; ignored for APDEX.
 #         comparison: LessThan                     # (Optional) Comparison operator. Default: LessThan.
 #         latency_threshold: 100                   # (Required for golden-signal) Latency threshold in milliseconds.
 #         errors_threshold: 5                      # (Required for golden-signal) Error threshold.
@@ -96,13 +98,15 @@ variable "alarm_targets" {
 ## Typed service observability configuration - yaml format
 # services:
 #   orders-api:
-#     resource_type: api_gateway                    # (Required) Valid values: eks_service, lambda_function, elasticbeanstalk_environment, synthetics_canary, api_gateway, ec2_instance, application_load_balancer, custom.
+#     resource_type: api_gateway                    # (Required) Valid values: eks_service, lambda_function, elasticbeanstalk_environment, synthetics_canary, rum_app_monitor, api_gateway, ec2_instance, application_load_balancer, custom.
 #     resource:
 #       api_gateway:                                # (Required for api_gateway) API Gateway REST API stage identity.
 #         api_name: orders-api                      # (Required) REST API name used by the ApiName CloudWatch dimension.
 #         stage: prod                               # (Required) API stage used by the Stage CloudWatch dimension.
 #       synthetics:                                 # (Required for synthetics_canary) CloudWatch Synthetics canary identity.
 #         canary_name: checkout-canary              # (Required) Canary name used by the CanaryName CloudWatch dimension.
+#       rum:                                        # (Required for rum_app_monitor) CloudWatch RUM app monitor identity.
+#         app_monitor_name: checkout-web            # (Required) App monitor name used by the application_name CloudWatch dimension.
 #       ec2:                                        # (Required for ec2_instance) EC2 instance identity.
 #         instance_id: i-0123456789abcdef0          # (Required) EC2 instance ID used by the InstanceId CloudWatch dimension.
 #       load_balancer:                              # (Required for application_load_balancer) Application Load Balancer identity.
@@ -114,7 +118,7 @@ variable "alarm_targets" {
 #         threshold: 500                            # (Optional) Alarm threshold. Default: preset-specific.
 #     slos:
 #       latency:
-#         type: metric-query                        # (Required) Valid values: golden-signal, operational, metric-query, request-based, synthetics.
+#         type: metric-query                        # (Required) Valid values: golden-signal, operational, metric-query, request-based, synthetics, rum.
 #         preset: lat_apigateway_service_requests   # (Required for metric-query) Direct metric preset.
 #         comparison: LessThan                      # (Optional) SLI comparison operator. Default: LessThan.
 #         threshold: 500                            # (Required for metric-query) SLI threshold.
@@ -125,6 +129,12 @@ variable "alarm_targets" {
 #         threshold: 100                            # (Optional) SLI threshold. Default: 100 for AVAILABILITY; required for LATENCY (milliseconds).
 #         statistic: Average                        # (Optional) SLI statistic. Default: Average.
 #         period_seconds: 300                       # (Optional) SLI period in seconds. Default: 300.
+#       web_vitals:
+#         type: rum                                 # (Required) RUM app monitor SLO; requires resource.rum.
+#         metric_type: LCP                          # (Optional) Valid values: LATENCY, LCP, CLS, FID, INP, JS_ERRORS, HTTP_ERRORS, APDEX. Default: LATENCY.
+#         comparison: LessThan                      # (Optional) SLI comparison operator. Default: LessThan.
+#         threshold: 2500                           # (Optional) SLI threshold. Defaults: LATENCY 3000 ms, LCP 2500 ms, CLS 0.1, FID 100 ms, INP 200 ms; required for JS_ERRORS/HTTP_ERRORS; ignored for APDEX.
+#         statistic: p75                            # (Optional) SLI statistic. Default: Average for LATENCY, p75 for web vitals, Sum for error counts.
 #         alarm:                                     # (Optional) Application Signals burn-rate alarm settings. Default: disabled.
 #           enabled: false                           # (Optional) Whether to create the burn-rate alarm. Default: false.
 #           priority: 1                              # (Optional) Alarm priority used in the generated name. Default: 1.
@@ -166,6 +176,10 @@ variable "services" {
 
       synthetics = optional(object({
         canary_name = string
+      }))
+
+      rum = optional(object({
+        app_monitor_name = string
       }))
 
       api_gateway = optional(object({
@@ -301,6 +315,7 @@ variable "services" {
         try(service.resource.lambda, null) != null ? "lambda_function" : "",
         try(service.resource.elasticbeanstalk, null) != null ? "elasticbeanstalk_environment" : "",
         try(service.resource.synthetics, null) != null ? "synthetics_canary" : "",
+        try(service.resource.rum, null) != null ? "rum_app_monitor" : "",
         try(service.resource.api_gateway, null) != null ? "api_gateway" : "",
         try(service.resource.ec2, null) != null ? "ec2_instance" : "",
         try(service.resource.load_balancer, null) != null ? "application_load_balancer" : "",

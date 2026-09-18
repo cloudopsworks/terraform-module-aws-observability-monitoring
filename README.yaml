@@ -66,6 +66,8 @@ introduction: |-
     enhanced-health metrics and request-based SLOs.
   - `services.<key>.resource_type = synthetics_canary` for CloudWatch Synthetics canary
     SuccessPercent and Duration SLOs.
+  - `services.<key>.resource_type = rum_app_monitor` for CloudWatch RUM app monitor
+    page-load, Web Vitals, error-count, and APDEX SLOs.
   - `services.<key>.resource_type = api_gateway` for API Gateway REST API stage metrics.
   - `services.<key>.resource_type = ec2_instance` for EC2 status, traffic, and CPU metrics.
   - `services.<key>.resource_type = application_load_balancer` for ALB latency,
@@ -73,7 +75,7 @@ introduction: |-
   - `services.<key>.monitors` configures alarms/dashboard widgets from built-in
     presets or inline custom metrics.
   - `services.<key>.slos` configures service-scoped Golden Signal, operational,
-    metric-query, request-based, or synthetics SLOs.
+    metric-query, request-based, synthetics, or rum SLOs.
   - `alarm.enabled: true` within a legacy service-level indicator or typed service SLO
     creates an Application Signals burn-rate alarm using the standard alarm name and
     action targets.
@@ -628,6 +630,82 @@ examples: |-
           attainment: 99.0
           duration: 7
           duration_unit: DAY
+  ```
+
+  ## v2 CloudWatch RUM app monitor SLOs
+
+  RUM app monitors publish metrics under the `AWS/RUM` namespace with an
+  `application_name` dimension. The `rum` SLO type selects the SLI through `metric_type`;
+  the app monitor itself is not created by this module and the service key is derived as
+  `rum:<app_monitor_name>` unless `source_service_key` is set explicitly.
+
+  | `metric_type`       | Metric                              | Default statistic | Default condition        |
+  |---------------------|-------------------------------------|-------------------|--------------------------|
+  | `LATENCY` (default) | `PerformanceNavigationDuration`     | `Average`         | `LessThan 3000` ms       |
+  | `LCP`               | `WebVitalsLargestContentfulPaint`   | `p75`             | `LessThan 2500` ms       |
+  | `CLS`               | `WebVitalsCumulativeLayoutShift`    | `p75`             | `LessThan 0.1`           |
+  | `FID`               | `WebVitalsFirstInputDelay`          | `p75`             | `LessThan 100` ms        |
+  | `INP`               | `WebVitalsInteractionToNextPaint`   | `p75`             | `LessThan 200` ms        |
+  | `JS_ERRORS`         | `JsErrorCount`                      | `Sum`             | `LessThan <threshold>`   |
+  | `HTTP_ERRORS`       | `HttpErrorCount`                    | `Sum`             | `LessThan <threshold>`   |
+  | `APDEX`             | `NavigationFrustratedTransaction` / all navigations | `Sum` | request-based, no threshold |
+
+  ```yaml
+  services:
+    checkout-web:
+      resource_type: rum_app_monitor
+      resource:
+        rum:
+          app_monitor_name: checkout-web
+      slos:
+        page_load:
+          type: rum
+          metric_type: LATENCY
+          threshold: 2000
+          alarm:
+            enabled: true
+            priority: 2
+        lcp:
+          type: rum
+          metric_type: LCP
+        cls:
+          type: rum
+          metric_type: CLS
+        js_errors:
+          type: rum
+          metric_type: JS_ERRORS
+          threshold: 10
+        apdex:
+          type: rum
+          metric_type: APDEX
+          goal:
+            attainment: 99.0
+            duration: 7
+            duration_unit: DAY
+  ```
+
+  Legacy `slos.service_level_objectives` form:
+
+  ```yaml
+  slos:
+    service_level_objectives:
+      - name: checkout-web-lcp
+        type: rum
+        service_level_indicator:
+          rum:
+            app_monitor_name: checkout-web
+          metric_type: LCP
+          threshold: 2500
+        goal:
+          attainment: 99.0
+      - name: checkout-web-apdex
+        type: rum
+        service_level_indicator:
+          rum:
+            app_monitor_name: checkout-web
+          metric_type: APDEX
+          alarm:
+            enabled: true
   ```
 
   ## Extending with a custom CloudWatch metric

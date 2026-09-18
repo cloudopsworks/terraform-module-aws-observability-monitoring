@@ -36,6 +36,7 @@ locals {
     lambda_function              = "lambda"
     elasticbeanstalk_environment = "elasticbeanstalk"
     synthetics_canary            = "synthetics"
+    rum_app_monitor              = "rum"
     api_gateway                  = "apigateway"
     ec2_instance                 = "ec2"
     application_load_balancer    = "alb"
@@ -58,6 +59,7 @@ locals {
         try(service.resource.lambda.function_name, null),
         try(service.resource.elasticbeanstalk.environment_name, null),
         try(service.resource.synthetics.canary_name, null),
+        try(service.resource.rum.app_monitor_name, null),
         try(service.resource.api_gateway.api_name, null),
         try(service.resource.ec2.instance_id, null),
         try(service.resource.load_balancer.arn_suffix, null),
@@ -81,6 +83,7 @@ locals {
         try(format("lambda:%s", service.resource.lambda.function_name), null),
         try(format("elasticbeanstalk:%s/%s", service.resource.elasticbeanstalk.application_name, service.resource.elasticbeanstalk.environment_name), null),
         try(format("synthetics:%s", service.resource.synthetics.canary_name), null),
+        try(format("rum:%s", service.resource.rum.app_monitor_name), null),
         try(format("apigateway:%s/%s", service.resource.api_gateway.api_name, service.resource.api_gateway.stage), null),
         try(format("ec2:%s", service.resource.ec2.instance_id), null),
         try(format("alb:%s", service.resource.load_balancer.arn_suffix), null),
@@ -121,6 +124,7 @@ locals {
       try(group.type, "") == "lambda" ? format("lambda:%s", group.service_name) :
       try(group.type, "") == "elasticbeanstalk" ? format("elasticbeanstalk:%s/%s", try(group.application_name, group.service_name), try(group.environment_name, group.service_name)) :
       try(group.type, "") == "synthetics" ? format("synthetics:%s", group.service_name) :
+      try(group.type, "") == "rum" ? format("rum:%s", group.service_name) :
       try(group.type, "") == "apigateway" ? format("apigateway:%s/%s", group.service_name, try(group.stage, "default")) :
       try(group.type, "") == "ec2" ? format("ec2:%s", group.service_name) :
       try(group.type, "") == "alb" ? format("alb:%s", group.service_name) :
@@ -131,6 +135,7 @@ locals {
         try(group.type, "") == "lambda" ? format("lambda:%s", group.service_name) :
         try(group.type, "") == "elasticbeanstalk" ? format("elasticbeanstalk:%s/%s", try(group.application_name, group.service_name), try(group.environment_name, group.service_name)) :
         try(group.type, "") == "synthetics" ? format("synthetics:%s", group.service_name) :
+        try(group.type, "") == "rum" ? format("rum:%s", group.service_name) :
         try(group.type, "") == "apigateway" ? format("apigateway:%s/%s", group.service_name, try(group.stage, "default")) :
         try(group.type, "") == "ec2" ? format("ec2:%s", group.service_name) :
         try(group.type, "") == "alb" ? format("alb:%s", group.service_name) :
@@ -163,6 +168,7 @@ locals {
           try(group.type, "") == "lambda" ? format("lambda:%s", group.service_name) :
           try(group.type, "") == "elasticbeanstalk" ? format("elasticbeanstalk:%s/%s", try(group.application_name, group.service_name), try(group.environment_name, group.service_name)) :
           try(group.type, "") == "synthetics" ? format("synthetics:%s", group.service_name) :
+          try(group.type, "") == "rum" ? format("rum:%s", group.service_name) :
           try(group.type, "") == "apigateway" ? format("apigateway:%s/%s", group.service_name, try(group.stage, "default")) :
           try(group.type, "") == "ec2" ? format("ec2:%s", group.service_name) :
           try(group.type, "") == "alb" ? format("alb:%s", group.service_name) :
