@@ -87,14 +87,26 @@ The v2 model adds a typed service inventory:
   Application Signals metrics.
 - `services.<key>.resource_type = elasticbeanstalk_environment` for Elastic Beanstalk
   enhanced-health metrics and request-based SLOs.
-- `services.<key>.resource_type = api_gateway` for API Gateway REST API stage metrics.
-- `services.<key>.resource_type = ec2_instance` for EC2 status, traffic, and CPU metrics.
+- `services.<key>.resource_type = synthetics_canary` for CloudWatch Synthetics canary
+  SuccessPercent and Duration SLOs.
+- `services.<key>.resource_type = rum_app_monitor` for CloudWatch RUM app monitor
+  page-load, Web Vitals, error-count, and APDEX SLOs.
+- `services.<key>.resource_type = api_gateway` for API Gateway REST API stage metrics,
+  metric-query latency SLOs, and 4xx/5xx request-based availability SLOs.
+- `services.<key>.resource_type = ec2_instance` for EC2 status, traffic, and CPU metrics
+  plus metric-query status-check and CPU SLOs.
 - `services.<key>.resource_type = application_load_balancer` for ALB latency,
-  errors, traffic, and rejected-connection saturation metrics.
+  errors, traffic, and rejected-connection saturation metrics, metric-query latency
+  SLOs, and target/ELB 5xx request-based availability SLOs.
 - `services.<key>.monitors` configures alarms/dashboard widgets from built-in
   presets or inline custom metrics.
-- `services.<key>.slos` configures service-scoped Golden Signal, operational,
-  metric-query, or request-based SLOs.
+- `services.<key>.slos` configures service-scoped Golden Signal, Golden Signal
+  operational (`golden-signal-op`), operational, metric-query, request-based,
+  synthetics, or rum SLOs.
+- Every SLO type is also available through the legacy `slos.service_level_objectives`
+  list, where the identity block (`eks`, `lambda`, `elasticbeanstalk`, `synthetics`,
+  `rum`, `api_gateway`, `ec2`, `load_balancer`) or an explicit `source_service_key`
+  selects the owning service.
 - `alarm.enabled: true` within a legacy service-level indicator or typed service SLO
   creates an Application Signals burn-rate alarm using the standard alarm name and
   action targets.
@@ -158,8 +170,12 @@ slos: {} # (Optional) SLO settings passed to the Terraform slo_settings input. D
 # slos:
 #   service_level_objectives:
 #     - name: checkout-availability
-#       type: operational
+#       type: operational # (Required) Valid values: golden-signal, golden-signal-op, operational, metric-query, request-based, synthetics, rum.
 #       service_level_indicator:
+#         eks: # (Optional) Identity block: eks, lambda, elasticbeanstalk, synthetics or rum; omit and set source_service_key for a generic service.
+#           cluster_name: eks-prod-use1
+#           namespace: checkout-prod
+#           name: checkout-helm
 #         metric_type: AVAILABILITY
 #         operations: ["GET /health"]
 #         alarm: # (Optional) Burn-rate alarm settings. Default: disabled.
@@ -169,6 +185,25 @@ slos: {} # (Optional) SLO settings passed to the Terraform slo_settings input. D
 #           datapoints_to_alarm: 1
 #           period: 60
 #           look_back_window_minutes: 60
+#     - name: checkout-golden-op
+#       type: golden-signal-op # LATENCY + AVAILABILITY Application Signals SLO pair across all operations.
+#       service_level_indicator:
+#         eks: { cluster_name: eks-prod-use1, namespace: checkout-prod, name: checkout-helm }
+#         latency_threshold: 300 # (Required) milliseconds
+#         latency_statistic: p99 # (Optional) Default: p99
+#         availability_threshold: 99.9 # (Required) percent
+#     - name: checkout-canary
+#       type: synthetics
+#       service_level_indicator:
+#         synthetics:
+#           canary_name: checkout-canary
+#         metric_type: AVAILABILITY # (Optional) AVAILABILITY (SuccessPercent) or LATENCY (Duration). Default: AVAILABILITY.
+#     - name: checkout-web-lcp
+#       type: rum
+#       service_level_indicator:
+#         rum:
+#           app_monitor_name: checkout-web
+#         metric_type: LCP # (Optional) LATENCY, LCP, CLS, FID, INP, JS_ERRORS, HTTP_ERRORS, APDEX. Default: LATENCY.
 
 services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and dashboards. Default: {}.
 # services:
@@ -283,6 +318,17 @@ inputs = {
 | `eb_requests_total` | Elastic Beanstalk | Traffic widget/request-count source |
 | `eb_instances_severe` | Elastic Beanstalk | Instance health |
 
+Request-based SLO presets (`type: request-based`) pair a bad-request metric with a
+total-request metric from the service identity block:
+
+| Preset | Resource | Bad / total metric |
+|--------|----------|--------------------|
+| `eb_5xx_availability` | Elastic Beanstalk | `ApplicationRequests5xx` / `ApplicationRequestsTotal` |
+| `apigateway_5xx_availability` | API Gateway | `5XXError` / `Count` |
+| `apigateway_4xx_availability` | API Gateway | `4XXError` / `Count` |
+| `alb_target_5xx_availability` | Application Load Balancer | `HTTPCode_Target_5XX_Count` / `RequestCount` |
+| `alb_elb_5xx_availability` | Application Load Balancer | `HTTPCode_ELB_5XX_Count` / `RequestCount` |
+
 ## Quick Start
 
 1. Create a deployment directory and scaffold the module:
@@ -390,11 +436,86 @@ slos:
         attainment: 99.9
         duration: 5
         duration_unit: DAY
+    - name: checkout-golden-op
+      type: golden-signal-op
+      service_level_indicator:
+        eks:
+          cluster_name: eks-nexus-main-prod-003-usea1
+          namespace: checkout-prod
+          name: checkout-helm
+        latency_threshold: 300
+        latency_statistic: p99
+        availability_threshold: 99.9
+        alarm:
+          enabled: true
+          priority: 1
+    - name: checkout-canary
+      type: synthetics
+      service_level_indicator:
+        synthetics:
+          canary_name: checkout-canary
+        metric_type: AVAILABILITY
+        alarm:
+          enabled: true
+          priority: 1
+    - name: checkout-canary-duration
+      type: synthetics
+      service_level_indicator:
+        synthetics:
+          canary_name: checkout-canary
+        metric_type: LATENCY
+        threshold: 3000
+        statistic: p95
+    - name: checkout-web-lcp
+      type: rum
+      service_level_indicator:
+        rum:
+          app_monitor_name: checkout-web
+        metric_type: LCP
+    - name: checkout-web-apdex
+      type: rum
+      service_level_indicator:
+        rum:
+          app_monitor_name: checkout-web
+        metric_type: APDEX
+        alarm:
+          enabled: true
+          priority: 2
+      goal:
+        attainment: 99.0
 
 dashboards:
   enabled: true
   create_fleet: true
   create_per_service: false
+```
+
+## Golden Signal operational SLOs (`golden-signal-op`)
+
+`golden-signal-op` creates a pair of Application Signals SLOs per service — one
+`LATENCY` (`latency_statistic`, p99 by default, `LessThan latency_threshold` ms) and one
+`AVAILABILITY` (`GreaterThan availability_threshold` percent) — both evaluated across
+**all** operations (`operation_name` omitted). Use `operational` with an `operations`
+list when you need per-operation SLOs instead.
+
+```yaml
+services:
+  checkout:
+    resource_type: eks_service
+    resource:
+      eks:
+        cluster_name: eks-prod-use1
+        namespace: checkout-prod
+        service_name: checkout-helm
+    slos:
+      golden_op:
+        type: golden-signal-op
+        latency_threshold: 300
+        latency_statistic: p95
+        availability_threshold: 99.9
+        alarm:
+          enabled: true
+          priority: 1
 ```
 
 ## v2 EKS service with dashboards and Golden Signals SLOs
@@ -477,8 +598,11 @@ dashboards:
 Infrastructure services use direct CloudWatch metrics. API Gateway and Application
 Load Balancer provide native request-latency metrics; EC2 does not, so EC2 latency
 must come from Application Signals or a custom application metric. Use `metric-query`
-SLOs with these direct presets rather than the Application Signals `golden-signal`
-SLO type.
+SLOs with the direct presets for latency/saturation, and `request-based` SLOs with the
+`apigateway_*_availability` / `alb_*_availability` presets for availability, rather
+than the Application Signals `golden-signal` SLO type. EC2 has no request metrics, so
+its availability SLO is a `metric-query` on `err_ec2_status_check_failed`
+(`LessThan 1`).
 
 ```yaml
 services:
@@ -511,6 +635,14 @@ services:
         preset: lat_apigateway_service_requests
         comparison: LessThan
         threshold: 500
+      availability:
+        type: request-based
+        preset: apigateway_5xx_availability
+        goal:
+          attainment: 99.9
+        alarm:
+          enabled: true
+          priority: 1
 
   batch-worker:
     resource_type: ec2_instance
@@ -530,6 +662,17 @@ services:
       cpu:
         preset: sat_ec2_cpu_utilization
         priority: 2
+        threshold: 85
+    slos:
+      status:
+        type: metric-query
+        preset: err_ec2_status_check_failed
+        comparison: LessThan
+        threshold: 1
+      cpu:
+        type: metric-query
+        preset: sat_ec2_cpu_utilization
+        comparison: LessThan
         threshold: 85
 
   public-alb:
@@ -556,6 +699,49 @@ services:
       rejected_connections:
         preset: sat_alb_rejected_connections
         priority: 1
+    slos:
+      latency:
+        type: metric-query
+        preset: lat_alb_target_response_time
+        comparison: LessThan
+        threshold: 1
+      availability:
+        type: request-based
+        preset: alb_target_5xx_availability
+        goal:
+          attainment: 99.9
+```
+
+The same infrastructure SLOs in legacy `slos.service_level_objectives` form use the
+`api_gateway`, `ec2`, and `load_balancer` identity blocks:
+
+```yaml
+slos:
+  service_level_objectives:
+    - name: orders-api-availability
+      type: request-based
+      preset: apigateway_5xx_availability
+      service_level_indicator:
+        api_gateway:
+          api_name: orders-api
+          stage: prod
+        alarm:
+          enabled: true
+          priority: 1
+    - name: batch-worker-status
+      type: metric-query
+      preset: err_ec2_status_check_failed
+      service_level_indicator:
+        ec2:
+          instance_id: i-0123456789abcdef0
+        comparison: LessThan
+        threshold: 1
+    - name: public-alb-availability
+      type: request-based
+      preset: alb_target_5xx_availability
+      service_level_indicator:
+        load_balancer:
+          arn_suffix: app/public-alb/50dc6c495c0c9188
 ```
 
 ## v2 Elastic Beanstalk environment
@@ -619,6 +805,157 @@ services:
           attainment: 99.5
           duration: 7
           duration_unit: DAY
+```
+
+## v2 CloudWatch Synthetics canary SLOs
+
+Synthetics canaries publish `SuccessPercent` and `Duration` under the
+`CloudWatchSynthetics` namespace with a `CanaryName` dimension. The `synthetics` SLO
+type builds a period-based SLI from either metric: `metric_type: AVAILABILITY`
+(default) uses `SuccessPercent` with `GreaterThanOrEqualTo 100`, and
+`metric_type: LATENCY` uses `Duration` with `LessThan <threshold>` milliseconds. The
+canary itself is not created by this module; the service key is derived as
+`synthetics:<canary_name>` unless `source_service_key` is set explicitly.
+
+```yaml
+services:
+  checkout-canary:
+    resource_type: synthetics_canary
+    resource:
+      synthetics:
+        canary_name: checkout-canary
+    slos:
+      availability:
+        type: synthetics
+        metric_type: AVAILABILITY
+        goal:
+          attainment: 99.5
+          duration: 7
+          duration_unit: DAY
+        alarm:
+          enabled: true
+          priority: 1
+      latency:
+        type: synthetics
+        metric_type: LATENCY
+        threshold: 3000
+        statistic: p95
+        goal:
+          attainment: 99.0
+          duration: 7
+          duration_unit: DAY
+```
+
+The same SLOs expressed through the legacy `slos.service_level_objectives` list
+(Terraform `slo_settings`). The canary identity lives under
+`service_level_indicator.synthetics`; `name` is optional and defaults to
+`<canary_name>-synthetics-<metric_type>`:
+
+```yaml
+slos:
+  service_level_objectives:
+    - name: checkout-canary-availability
+      type: synthetics
+      service_level_indicator:
+        synthetics:
+          canary_name: checkout-canary
+        metric_type: AVAILABILITY       # SuccessPercent >= 100 (defaults)
+        period_seconds: 300
+        alarm:
+          enabled: true
+          priority: 1
+      goal:
+        attainment: 99.5
+        duration: 7
+        duration_unit: DAY
+    - name: checkout-canary-latency
+      type: synthetics
+      service_level_indicator:
+        synthetics:
+          canary_name: checkout-canary
+        metric_type: LATENCY            # Duration < threshold (ms)
+        threshold: 3000
+        statistic: p95
+      goal:
+        attainment: 99.0
+        duration: 7
+        duration_unit: DAY
+```
+
+## v2 CloudWatch RUM app monitor SLOs
+
+RUM app monitors publish metrics under the `AWS/RUM` namespace with an
+`application_name` dimension. The `rum` SLO type selects the SLI through `metric_type`;
+the app monitor itself is not created by this module and the service key is derived as
+`rum:<app_monitor_name>` unless `source_service_key` is set explicitly.
+
+| `metric_type`       | Metric                              | Default statistic | Default condition        |
+|---------------------|-------------------------------------|-------------------|--------------------------|
+| `LATENCY` (default) | `PerformanceNavigationDuration`     | `Average`         | `LessThan 3000` ms       |
+| `LCP`               | `WebVitalsLargestContentfulPaint`   | `p75`             | `LessThan 2500` ms       |
+| `CLS`               | `WebVitalsCumulativeLayoutShift`    | `p75`             | `LessThan 0.1`           |
+| `FID`               | `WebVitalsFirstInputDelay`          | `p75`             | `LessThan 100` ms        |
+| `INP`               | `WebVitalsInteractionToNextPaint`   | `p75`             | `LessThan 200` ms        |
+| `JS_ERRORS`         | `JsErrorCount`                      | `Sum`             | `LessThan <threshold>`   |
+| `HTTP_ERRORS`       | `HttpErrorCount`                    | `Sum`             | `LessThan <threshold>`   |
+| `APDEX`             | `NavigationFrustratedTransaction` / all navigations | `Sum` | request-based, no threshold |
+
+```yaml
+services:
+  checkout-web:
+    resource_type: rum_app_monitor
+    resource:
+      rum:
+        app_monitor_name: checkout-web
+    slos:
+      page_load:
+        type: rum
+        metric_type: LATENCY
+        threshold: 2000
+        alarm:
+          enabled: true
+          priority: 2
+      lcp:
+        type: rum
+        metric_type: LCP
+      cls:
+        type: rum
+        metric_type: CLS
+      js_errors:
+        type: rum
+        metric_type: JS_ERRORS
+        threshold: 10
+      apdex:
+        type: rum
+        metric_type: APDEX
+        goal:
+          attainment: 99.0
+          duration: 7
+          duration_unit: DAY
+```
+
+Legacy `slos.service_level_objectives` form:
+
+```yaml
+slos:
+  service_level_objectives:
+    - name: checkout-web-lcp
+      type: rum
+      service_level_indicator:
+        rum:
+          app_monitor_name: checkout-web
+        metric_type: LCP
+        threshold: 2500
+      goal:
+        attainment: 99.0
+    - name: checkout-web-apdex
+      type: rum
+      service_level_indicator:
+        rum:
+          app_monitor_name: checkout-web
+        metric_type: APDEX
+        alarm:
+          enabled: true
 ```
 
 ## Extending with a custom CloudWatch metric
@@ -707,7 +1044,7 @@ Available targets:
 | <a name="input_monitor_groups"></a> [monitor\_groups](#input\_monitor\_groups) | Named monitor groups containing resource monitor definitions; each group is the boundary for an optional fleet dashboard. | `any` | `[]` | no |
 | <a name="input_org"></a> [org](#input\_org) | Organization details | <pre>object({<br/>    organization_name = string<br/>    organization_unit = string<br/>    environment_type  = string<br/>    environment_name  = string<br/>  })</pre> | n/a | yes |
 | <a name="input_resource_profiles"></a> [resource\_profiles](#input\_resource\_profiles) | Custom resource profiles keyed by profile name. | <pre>map(object({<br/>    resource_type = string<br/>    identity = object({<br/>      required_fields      = list(string)<br/>      canonical_key_format = string<br/>      environment_format   = optional(string)<br/>      service_name_from    = string<br/>    })<br/>    capabilities = object({<br/>      latency           = optional(bool, false)<br/>      errors            = optional(bool, false)<br/>      faults            = optional(bool, false)<br/>      traffic           = optional(bool, false)<br/>      saturation        = optional(bool, false)<br/>      health            = optional(bool, false)<br/>      app_signals_slo   = optional(bool, false)<br/>      metric_query_slo  = optional(bool, false)<br/>      request_based_slo = optional(bool, false)<br/>    })<br/>    default_monitor_presets   = optional(map(string), {})<br/>    default_dashboard_presets = optional(list(string), [])<br/>    prerequisites             = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
-| <a name="input_services"></a> [services](#input\_services) | Typed v2 service observability definitions for alarms, SLOs, and dashboards. | <pre>map(object({<br/>    enabled       = optional(bool, true)<br/>    display_name  = optional(string)<br/>    resource_type = string<br/>    profile       = optional(string)<br/><br/>    resource = object({<br/>      account_id = optional(string)<br/>      region     = optional(string)<br/>      partition  = optional(string, "aws")<br/><br/>      eks = optional(object({<br/>        cluster_name = string<br/>        namespace    = string<br/>        service_name = string<br/>      }))<br/><br/>      lambda = optional(object({<br/>        function_name = string<br/>        alias         = optional(string)<br/>      }))<br/><br/>      elasticbeanstalk = optional(object({<br/>        application_name         = string<br/>        environment_name         = string<br/>        platform                 = optional(string, "linux")<br/>        enhanced_health_required = optional(bool, true)<br/>        published_metrics        = optional(set(string), ["EnvironmentHealth"])<br/>      }))<br/><br/>      api_gateway = optional(object({<br/>        api_name = string<br/>        stage    = string<br/>      }))<br/><br/>      ec2 = optional(object({<br/>        instance_id = string<br/>      }))<br/><br/>      load_balancer = optional(object({<br/>        arn_suffix = string<br/>      }))<br/><br/>      app_signals = optional(object({<br/>        enabled     = optional(bool, true)<br/>        environment = optional(string)<br/>        service     = optional(string)<br/>      }), {})<br/><br/>      dimensions = optional(map(string), {})<br/>    })<br/><br/>    monitors = optional(map(object({<br/>      enabled               = optional(bool, true)<br/>      preset                = optional(string)<br/>      name                  = optional(string)<br/>      priority              = optional(number, 3)<br/>      threshold             = optional(number)<br/>      comparison_operator   = optional(string)<br/>      evaluation_periods    = optional(number)<br/>      datapoints_to_alarm   = optional(number)<br/>      period                = optional(number)<br/>      statistic             = optional(string)<br/>      unit                  = optional(string)<br/>      treat_missing_data    = optional(string)<br/>      dashboard_only        = optional(bool)<br/>      allow_missing_metrics = optional(bool, false)<br/>      override              = optional(bool, false)<br/>      name_override         = optional(string)<br/>      description_override  = optional(string)<br/>      metric = optional(object({<br/>        namespace   = string<br/>        metric_name = string<br/>        dimensions  = optional(map(string), {})<br/>        statistic   = optional(string)<br/>        period      = optional(number)<br/>        unit        = optional(string)<br/>      }))<br/>      metric_query = optional(list(object({<br/>        id          = string<br/>        expression  = optional(string)<br/>        label       = optional(string)<br/>        return_data = optional(bool, true)<br/>        metric = optional(object({<br/>          namespace   = string<br/>          metric_name = string<br/>          dimensions  = optional(map(string), {})<br/>          statistic   = string<br/>          period      = optional(number)<br/>          unit        = optional(string)<br/>        }))<br/>      })), [])<br/>      dashboard = optional(object({<br/>        widget_type = optional(string, "metric")<br/>        title       = optional(string)<br/>        width       = optional(number, 12)<br/>        height      = optional(number, 6)<br/>      }), {})<br/>    })), {})<br/><br/>    slos = optional(map(object({<br/>      enabled              = optional(bool, true)<br/>      type                 = string<br/>      preset               = optional(string)<br/>      name_override        = optional(string)<br/>      description          = optional(string)<br/>      comparison           = optional(string)<br/>      comparisson          = optional(string)<br/>      threshold            = optional(number)<br/>      metric_type          = optional(string)<br/>      statistic            = optional(string)<br/>      period_seconds       = optional(number)<br/>      operations           = optional(list(string), [])<br/>      latency_threshold    = optional(number)<br/>      errors_threshold     = optional(number)<br/>      traffic_threshold    = optional(number)<br/>      saturation_threshold = optional(number)<br/>      saturation_metric    = optional(string)<br/>      alarm = optional(object({<br/>        enabled                  = optional(bool, false)<br/>        priority                 = optional(number, 1)<br/>        threshold                = optional(number, 1)<br/>        datapoints_to_alarm      = optional(number, 1)<br/>        period                   = optional(number, 60)<br/>        look_back_window_minutes = optional(number, 60)<br/>      }), {})<br/>      goal = optional(object({<br/>        attainment        = optional(number, 99.9)<br/>        duration          = optional(number, 7)<br/>        duration_unit     = optional(string, "DAY")<br/>        warning_threshold = optional(number, 80)<br/>      }), {})<br/>    })), {})<br/><br/>    dashboard = optional(object({<br/>      enabled     = optional(bool, true)<br/>      presets     = optional(list(string), [])<br/>      runbook_url = optional(string)<br/>      custom_widgets = optional(list(object({<br/>        id         = string<br/>        position   = optional(string, "append")<br/>        type       = string<br/>        title      = optional(string)<br/>        markdown   = optional(string)<br/>        width      = optional(number)<br/>        height     = optional(number)<br/>        properties = optional(any)<br/>      })), [])<br/>    }), {})<br/><br/>    tags = optional(map(string), {})<br/>  }))</pre> | `{}` | no |
+| <a name="input_services"></a> [services](#input\_services) | Typed v2 service observability definitions for alarms, SLOs, and dashboards. | <pre>map(object({<br/>    enabled       = optional(bool, true)<br/>    display_name  = optional(string)<br/>    resource_type = string<br/>    profile       = optional(string)<br/><br/>    resource = object({<br/>      account_id = optional(string)<br/>      region     = optional(string)<br/>      partition  = optional(string, "aws")<br/><br/>      eks = optional(object({<br/>        cluster_name = string<br/>        namespace    = string<br/>        service_name = string<br/>      }))<br/><br/>      lambda = optional(object({<br/>        function_name = string<br/>        alias         = optional(string)<br/>      }))<br/><br/>      elasticbeanstalk = optional(object({<br/>        application_name         = string<br/>        environment_name         = string<br/>        platform                 = optional(string, "linux")<br/>        enhanced_health_required = optional(bool, true)<br/>        published_metrics        = optional(set(string), ["EnvironmentHealth"])<br/>      }))<br/><br/>      synthetics = optional(object({<br/>        canary_name = string<br/>      }))<br/><br/>      rum = optional(object({<br/>        app_monitor_name = string<br/>      }))<br/><br/>      api_gateway = optional(object({<br/>        api_name = string<br/>        stage    = string<br/>      }))<br/><br/>      ec2 = optional(object({<br/>        instance_id = string<br/>      }))<br/><br/>      load_balancer = optional(object({<br/>        arn_suffix = string<br/>      }))<br/><br/>      app_signals = optional(object({<br/>        enabled     = optional(bool, true)<br/>        environment = optional(string)<br/>        service     = optional(string)<br/>      }), {})<br/><br/>      dimensions = optional(map(string), {})<br/>    })<br/><br/>    monitors = optional(map(object({<br/>      enabled               = optional(bool, true)<br/>      preset                = optional(string)<br/>      name                  = optional(string)<br/>      priority              = optional(number, 3)<br/>      threshold             = optional(number)<br/>      comparison_operator   = optional(string)<br/>      evaluation_periods    = optional(number)<br/>      datapoints_to_alarm   = optional(number)<br/>      period                = optional(number)<br/>      statistic             = optional(string)<br/>      unit                  = optional(string)<br/>      treat_missing_data    = optional(string)<br/>      dashboard_only        = optional(bool)<br/>      allow_missing_metrics = optional(bool, false)<br/>      override              = optional(bool, false)<br/>      name_override         = optional(string)<br/>      description_override  = optional(string)<br/>      metric = optional(object({<br/>        namespace   = string<br/>        metric_name = string<br/>        dimensions  = optional(map(string), {})<br/>        statistic   = optional(string)<br/>        period      = optional(number)<br/>        unit        = optional(string)<br/>      }))<br/>      metric_query = optional(list(object({<br/>        id          = string<br/>        expression  = optional(string)<br/>        label       = optional(string)<br/>        return_data = optional(bool, true)<br/>        metric = optional(object({<br/>          namespace   = string<br/>          metric_name = string<br/>          dimensions  = optional(map(string), {})<br/>          statistic   = string<br/>          period      = optional(number)<br/>          unit        = optional(string)<br/>        }))<br/>      })), [])<br/>      dashboard = optional(object({<br/>        widget_type = optional(string, "metric")<br/>        title       = optional(string)<br/>        width       = optional(number, 12)<br/>        height      = optional(number, 6)<br/>      }), {})<br/>    })), {})<br/><br/>    slos = optional(map(object({<br/>      enabled                = optional(bool, true)<br/>      type                   = string<br/>      preset                 = optional(string)<br/>      name_override          = optional(string)<br/>      description            = optional(string)<br/>      comparison             = optional(string)<br/>      comparisson            = optional(string)<br/>      threshold              = optional(number)<br/>      metric_type            = optional(string)<br/>      statistic              = optional(string)<br/>      period_seconds         = optional(number)<br/>      operations             = optional(list(string), [])<br/>      latency_threshold      = optional(number)<br/>      availability_threshold = optional(number)<br/>      latency_statistic      = optional(string)<br/>      errors_threshold       = optional(number)<br/>      traffic_threshold      = optional(number)<br/>      saturation_threshold   = optional(number)<br/>      saturation_metric      = optional(string)<br/>      alarm = optional(object({<br/>        enabled                  = optional(bool, false)<br/>        priority                 = optional(number, 1)<br/>        threshold                = optional(number, 1)<br/>        datapoints_to_alarm      = optional(number, 1)<br/>        period                   = optional(number, 60)<br/>        look_back_window_minutes = optional(number, 60)<br/>      }), {})<br/>      goal = optional(object({<br/>        attainment        = optional(number, 99.9)<br/>        duration          = optional(number, 7)<br/>        duration_unit     = optional(string, "DAY")<br/>        warning_threshold = optional(number, 80)<br/>      }), {})<br/>    })), {})<br/><br/>    dashboard = optional(object({<br/>      enabled     = optional(bool, true)<br/>      presets     = optional(list(string), [])<br/>      runbook_url = optional(string)<br/>      custom_widgets = optional(list(object({<br/>        id         = string<br/>        position   = optional(string, "append")<br/>        type       = string<br/>        title      = optional(string)<br/>        markdown   = optional(string)<br/>        width      = optional(number)<br/>        height     = optional(number)<br/>        properties = optional(any)<br/>      })), [])<br/>    }), {})<br/><br/>    tags = optional(map(string), {})<br/>  }))</pre> | `{}` | no |
 | <a name="input_slo_settings"></a> [slo\_settings](#input\_slo\_settings) | Legacy SLO settings for the monitoring module. Kept for backward compatibility. | `any` | `{}` | no |
 | <a name="input_spoke_def"></a> [spoke\_def](#input\_spoke\_def) | Spoke ID Number, must be a 3 digit number | `string` | `"001"` | no |
 

@@ -19,6 +19,8 @@ locals {
           try(format("eks:%s/%s/%s", service.resource.eks.cluster_name, service.resource.eks.namespace, service.resource.eks.service_name), null),
           try(format("lambda:%s", service.resource.lambda.function_name), null),
           try(format("elasticbeanstalk:%s/%s", service.resource.elasticbeanstalk.application_name, service.resource.elasticbeanstalk.environment_name), null),
+          try(format("synthetics:%s", service.resource.synthetics.canary_name), null),
+          try(format("rum:%s", service.resource.rum.app_monitor_name), null),
           try(format("apigateway:%s/%s", service.resource.api_gateway.api_name, service.resource.api_gateway.stage), null),
           try(format("ec2:%s", service.resource.ec2.instance_id), null),
           try(format("alb:%s", service.resource.load_balancer.arn_suffix), null),
@@ -26,20 +28,22 @@ locals {
         )
         resource_type = service.resource_type
         service_level_indicator = merge({
-          comparison           = try(coalesce(try(slo.comparison, null), try(slo.comparisson, null)), null)
-          threshold            = try(slo.threshold, null)
-          metric_type          = try(slo.metric_type, null)
-          statistic            = try(slo.statistic, null)
-          period_seconds       = try(slo.period_seconds, null)
-          operations           = try(slo.operations, [])
-          latency_threshold    = try(slo.latency_threshold, null)
-          errors_threshold     = try(slo.errors_threshold, null)
-          traffic_threshold    = try(slo.traffic_threshold, null)
-          saturation_threshold = try(slo.saturation_threshold, null)
-          saturation_metric    = try(slo.saturation_metric, null)
-          alarm                = try(slo.alarm, {})
-          account_id           = try(service.resource.account_id, null)
-          published_metrics    = try(service.resource.elasticbeanstalk.published_metrics, [])
+          comparison             = try(coalesce(try(slo.comparison, null), try(slo.comparisson, null)), null)
+          threshold              = try(slo.threshold, null)
+          metric_type            = try(slo.metric_type, null)
+          statistic              = try(slo.statistic, null)
+          period_seconds         = try(slo.period_seconds, null)
+          operations             = try(slo.operations, [])
+          latency_threshold      = try(slo.latency_threshold, null)
+          availability_threshold = try(slo.availability_threshold, null)
+          latency_statistic      = try(slo.latency_statistic, null)
+          errors_threshold       = try(slo.errors_threshold, null)
+          traffic_threshold      = try(slo.traffic_threshold, null)
+          saturation_threshold   = try(slo.saturation_threshold, null)
+          saturation_metric      = try(slo.saturation_metric, null)
+          alarm                  = try(slo.alarm, {})
+          account_id             = try(service.resource.account_id, null)
+          published_metrics      = try(service.resource.elasticbeanstalk.published_metrics, [])
           }, try({
             eks = {
               cluster_name = service.resource.eks.cluster_name
@@ -63,6 +67,20 @@ locals {
             }
             environment = coalesce(try(service.resource.app_signals.environment, null), format("elasticbeanstalk:%s/%s", service.resource.elasticbeanstalk.application_name, service.resource.elasticbeanstalk.environment_name))
             name        = coalesce(try(service.resource.app_signals.service, null), service.resource.elasticbeanstalk.environment_name)
+            type        = "Service"
+            }, {}), try({
+            synthetics = {
+              canary_name = service.resource.synthetics.canary_name
+            }
+            environment = coalesce(try(service.resource.app_signals.environment, null), "synthetics:default")
+            name        = coalesce(try(service.resource.app_signals.service, null), service.resource.synthetics.canary_name)
+            type        = "Service"
+            }, {}), try({
+            rum = {
+              app_monitor_name = service.resource.rum.app_monitor_name
+            }
+            environment = coalesce(try(service.resource.app_signals.environment, null), "rum:default")
+            name        = coalesce(try(service.resource.app_signals.service, null), service.resource.rum.app_monitor_name)
             type        = "Service"
             }, {}), try({
             api_gateway = {

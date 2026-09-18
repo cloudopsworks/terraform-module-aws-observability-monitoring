@@ -1,0 +1,46 @@
+alarm_targets: []
+services:
+  orders-api:
+    resource_type: api_gateway
+    resource:
+      api_gateway:
+        api_name: orders-api
+        stage: prod
+    slos:
+      availability:
+        type: request-based
+        preset: apigateway_5xx_availability
+        alarm:
+          enabled: true
+          priority: 1
+  public-alb:
+    resource_type: application_load_balancer
+    resource:
+      load_balancer:
+        arn_suffix: app/public-alb/50dc6c495c0c9188
+    slos:
+      availability:
+        type: request-based
+        preset: alb_target_5xx_availability
+      latency:
+        type: metric-query
+        preset: lat_alb_target_response_time
+        comparison: LessThan
+        threshold: 1
+slos:
+  service_level_objectives:
+    - name: batch-worker-status
+      type: metric-query
+      preset: err_ec2_status_check_failed
+      service_level_indicator:
+        ec2:
+          instance_id: i-0123456789abcdef0
+        comparison: LessThan
+        threshold: 1
+    - name: orders-api-legacy-availability
+      type: request-based
+      preset: apigateway_5xx_availability
+      service_level_indicator:
+        api_gateway:
+          api_name: orders-api
+          stage: prod

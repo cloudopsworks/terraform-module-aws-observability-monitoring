@@ -12,7 +12,7 @@
 #   service_level_objectives:
 #     - name: "Golden Signal SLO"
 #       description: "Service Level Objective 1"   # (Optional) Description for the SLO. Default: generated from the SLO name.
-#       type: golden-signal                        # (Required) SLO type. Valid values: golden-signal, operational, metric-query, request-based.
+#       type: golden-signal                        # (Required) SLO type. Valid values: golden-signal, golden-signal-op, operational, metric-query, request-based, synthetics, rum.
 #       service_level_indicator:
 #         eks:                                     # (Optional) EKS service identity.
 #           cluster_name: "my-cluster"             # (Required) EKS cluster name.
@@ -20,8 +20,23 @@
 #           name: "my-service"                     # (Required) Kubernetes service name.
 #         lambda:                                  # (Optional) Lambda service identity.
 #           function_name: "my-function"           # (Required) Lambda function name.
+#         synthetics:                              # (Optional) CloudWatch Synthetics canary identity, used by type synthetics.
+#           canary_name: "my-canary"               # (Required) Canary name used by the CanaryName CloudWatch dimension.
+#         rum:                                     # (Optional) CloudWatch RUM app monitor identity, used by type rum.
+#           app_monitor_name: "my-web-app"         # (Required) App monitor name used by the application_name CloudWatch dimension.
+#         api_gateway:                             # (Optional) API Gateway REST API stage identity for metric-query/request-based SLOs.
+#           api_name: "orders-api"                 # (Required) REST API name used by the ApiName CloudWatch dimension.
+#           stage: "prod"                          # (Required) Stage used by the Stage CloudWatch dimension.
+#         ec2:                                     # (Optional) EC2 instance identity for metric-query SLOs.
+#           instance_id: "i-0123456789abcdef0"     # (Required) Instance ID used by the InstanceId CloudWatch dimension.
+#         load_balancer:                           # (Optional) Application Load Balancer identity for metric-query/request-based SLOs.
+#           arn_suffix: "app/public/50dc6c495c0c"  # (Required) Final ARN portion used by the LoadBalancer CloudWatch dimension.
+#         metric_type: AVAILABILITY                # (Optional for synthetics/rum) synthetics: AVAILABILITY (SuccessPercent), LATENCY (Duration); default AVAILABILITY. rum: LATENCY, LCP, CLS, FID, INP, JS_ERRORS, HTTP_ERRORS, APDEX; default LATENCY.
+#         threshold: 100                           # (Optional for synthetics/rum) SLI threshold. Defaults: synthetics AVAILABILITY 100; rum LATENCY 3000, LCP 2500, CLS 0.1, FID 100, INP 200. Required for synthetics LATENCY, JS_ERRORS, HTTP_ERRORS; ignored for APDEX.
 #         comparison: LessThan                     # (Optional) Comparison operator. Default: LessThan.
-#         latency_threshold: 100                   # (Required for golden-signal) Latency threshold in milliseconds.
+#         latency_threshold: 100                   # (Required for golden-signal/golden-signal-op) Latency threshold in milliseconds.
+#         availability_threshold: 99.9             # (Required for golden-signal-op) Application Signals availability threshold in percent, evaluated across all operations.
+#         latency_statistic: p99                   # (Optional for golden-signal-op) Statistic for the LATENCY SLO. Valid values: Average, p50, p90, p95, p99, etc. Default: p99.
 #         errors_threshold: 5                      # (Required for golden-signal) Error threshold.
 #         saturation_threshold: 80                 # (Required for golden-signal) Saturation threshold.
 #         saturation_metric: CPU                   # (Optional) Saturation metric. Valid values: CPU, MEMORY. Default: CPU.
@@ -92,11 +107,15 @@ variable "alarm_targets" {
 ## Typed service observability configuration - yaml format
 # services:
 #   orders-api:
-#     resource_type: api_gateway                    # (Required) Valid values: eks_service, lambda_function, elasticbeanstalk_environment, api_gateway, ec2_instance, application_load_balancer, custom.
+#     resource_type: api_gateway                    # (Required) Valid values: eks_service, lambda_function, elasticbeanstalk_environment, synthetics_canary, rum_app_monitor, api_gateway, ec2_instance, application_load_balancer, custom.
 #     resource:
 #       api_gateway:                                # (Required for api_gateway) API Gateway REST API stage identity.
 #         api_name: orders-api                      # (Required) REST API name used by the ApiName CloudWatch dimension.
 #         stage: prod                               # (Required) API stage used by the Stage CloudWatch dimension.
+#       synthetics:                                 # (Required for synthetics_canary) CloudWatch Synthetics canary identity.
+#         canary_name: checkout-canary              # (Required) Canary name used by the CanaryName CloudWatch dimension.
+#       rum:                                        # (Required for rum_app_monitor) CloudWatch RUM app monitor identity.
+#         app_monitor_name: checkout-web            # (Required) App monitor name used by the application_name CloudWatch dimension.
 #       ec2:                                        # (Required for ec2_instance) EC2 instance identity.
 #         instance_id: i-0123456789abcdef0          # (Required) EC2 instance ID used by the InstanceId CloudWatch dimension.
 #       load_balancer:                              # (Required for application_load_balancer) Application Load Balancer identity.
@@ -108,10 +127,28 @@ variable "alarm_targets" {
 #         threshold: 500                            # (Optional) Alarm threshold. Default: preset-specific.
 #     slos:
 #       latency:
-#         type: metric-query                        # (Required) Use metric-query for direct infrastructure metrics.
-#         preset: lat_apigateway_service_requests   # (Required for metric-query) Direct metric preset.
+#         type: metric-query                        # (Required) Valid values: golden-signal, golden-signal-op, operational, metric-query, request-based, synthetics, rum.
+#         preset: lat_apigateway_service_requests   # (Required for metric-query/request-based) metric-query: any monitor preset. request-based: eb_5xx_availability, apigateway_5xx_availability, apigateway_4xx_availability, alb_target_5xx_availability, alb_elb_5xx_availability.
 #         comparison: LessThan                      # (Optional) SLI comparison operator. Default: LessThan.
 #         threshold: 500                            # (Required for metric-query) SLI threshold.
+#       availability:
+#         type: synthetics                          # (Required) Synthetics canary SLO; requires resource.synthetics.
+#         metric_type: AVAILABILITY                 # (Optional) Valid values: AVAILABILITY (SuccessPercent), LATENCY (Duration). Default: AVAILABILITY.
+#         comparison: GreaterThanOrEqualTo          # (Optional) SLI comparison operator. Default: GreaterThanOrEqualTo for AVAILABILITY, LessThan for LATENCY.
+#         threshold: 100                            # (Optional) SLI threshold. Default: 100 for AVAILABILITY; required for LATENCY (milliseconds).
+#         statistic: Average                        # (Optional) SLI statistic. Default: Average.
+#         period_seconds: 300                       # (Optional) SLI period in seconds. Default: 300.
+#       golden_op:
+#         type: golden-signal-op                    # (Required) Application Signals LATENCY + AVAILABILITY SLO pair across all operations.
+#         latency_threshold: 300                    # (Required) Latency threshold in milliseconds.
+#         latency_statistic: p99                    # (Optional) Statistic for the LATENCY SLO. Valid values: Average, p50, p90, p95, p99, etc. Default: p99.
+#         availability_threshold: 99.9              # (Required) Availability threshold in percent.
+#       web_vitals:
+#         type: rum                                 # (Required) RUM app monitor SLO; requires resource.rum.
+#         metric_type: LCP                          # (Optional) Valid values: LATENCY, LCP, CLS, FID, INP, JS_ERRORS, HTTP_ERRORS, APDEX. Default: LATENCY.
+#         comparison: LessThan                      # (Optional) SLI comparison operator. Default: LessThan.
+#         threshold: 2500                           # (Optional) SLI threshold. Defaults: LATENCY 3000 ms, LCP 2500 ms, CLS 0.1, FID 100 ms, INP 200 ms; required for JS_ERRORS/HTTP_ERRORS; ignored for APDEX.
+#         statistic: p75                            # (Optional) SLI statistic. Default: Average for LATENCY, p75 for web vitals, Sum for error counts.
 #         alarm:                                     # (Optional) Application Signals burn-rate alarm settings. Default: disabled.
 #           enabled: false                           # (Optional) Whether to create the burn-rate alarm. Default: false.
 #           priority: 1                              # (Optional) Alarm priority used in the generated name. Default: 1.
@@ -149,6 +186,14 @@ variable "services" {
         platform                 = optional(string, "linux")
         enhanced_health_required = optional(bool, true)
         published_metrics        = optional(set(string), ["EnvironmentHealth"])
+      }))
+
+      synthetics = optional(object({
+        canary_name = string
+      }))
+
+      rum = optional(object({
+        app_monitor_name = string
       }))
 
       api_gateway = optional(object({
@@ -222,23 +267,25 @@ variable "services" {
     })), {})
 
     slos = optional(map(object({
-      enabled              = optional(bool, true)
-      type                 = string
-      preset               = optional(string)
-      name_override        = optional(string)
-      description          = optional(string)
-      comparison           = optional(string)
-      comparisson          = optional(string)
-      threshold            = optional(number)
-      metric_type          = optional(string)
-      statistic            = optional(string)
-      period_seconds       = optional(number)
-      operations           = optional(list(string), [])
-      latency_threshold    = optional(number)
-      errors_threshold     = optional(number)
-      traffic_threshold    = optional(number)
-      saturation_threshold = optional(number)
-      saturation_metric    = optional(string)
+      enabled                = optional(bool, true)
+      type                   = string
+      preset                 = optional(string)
+      name_override          = optional(string)
+      description            = optional(string)
+      comparison             = optional(string)
+      comparisson            = optional(string)
+      threshold              = optional(number)
+      metric_type            = optional(string)
+      statistic              = optional(string)
+      period_seconds         = optional(number)
+      operations             = optional(list(string), [])
+      latency_threshold      = optional(number)
+      availability_threshold = optional(number)
+      latency_statistic      = optional(string)
+      errors_threshold       = optional(number)
+      traffic_threshold      = optional(number)
+      saturation_threshold   = optional(number)
+      saturation_metric      = optional(string)
       alarm = optional(object({
         enabled                  = optional(bool, false)
         priority                 = optional(number, 1)
@@ -283,6 +330,8 @@ variable "services" {
         try(service.resource.eks, null) != null ? "eks_service" : "",
         try(service.resource.lambda, null) != null ? "lambda_function" : "",
         try(service.resource.elasticbeanstalk, null) != null ? "elasticbeanstalk_environment" : "",
+        try(service.resource.synthetics, null) != null ? "synthetics_canary" : "",
+        try(service.resource.rum, null) != null ? "rum_app_monitor" : "",
         try(service.resource.api_gateway, null) != null ? "api_gateway" : "",
         try(service.resource.ec2, null) != null ? "ec2_instance" : "",
         try(service.resource.load_balancer, null) != null ? "application_load_balancer" : "",
