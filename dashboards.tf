@@ -18,10 +18,13 @@ locals {
         try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
         try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
         try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+        try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+        try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+        try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
         format("custom:%s", try(slo.name, slo.service_level_indicator.name))
       )
       display_name  = try(slo.service_level_indicator.name, slo.name)
-      resource_type = try(slo.resource_type, try(slo.service_level_indicator.eks, null) != null ? "eks_service" : try(slo.service_level_indicator.lambda, null) != null ? "lambda_function" : try(slo.service_level_indicator.elasticbeanstalk, null) != null ? "elasticbeanstalk_environment" : try(slo.service_level_indicator.synthetics, null) != null ? "synthetics_canary" : try(slo.service_level_indicator.rum, null) != null ? "rum_app_monitor" : "custom")
+      resource_type = try(slo.resource_type, try(slo.service_level_indicator.eks, null) != null ? "eks_service" : try(slo.service_level_indicator.lambda, null) != null ? "lambda_function" : try(slo.service_level_indicator.elasticbeanstalk, null) != null ? "elasticbeanstalk_environment" : try(slo.service_level_indicator.synthetics, null) != null ? "synthetics_canary" : try(slo.service_level_indicator.rum, null) != null ? "rum_app_monitor" : try(slo.service_level_indicator.api_gateway, null) != null ? "api_gateway" : try(slo.service_level_indicator.ec2, null) != null ? "ec2_instance" : try(slo.service_level_indicator.load_balancer, null) != null ? "application_load_balancer" : "custom")
       service_name  = try(slo.service_level_indicator.name, slo.name)
       dashboard     = {}
       tags          = try(slo.tags, {})

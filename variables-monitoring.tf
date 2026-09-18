@@ -24,6 +24,13 @@
 #           canary_name: "my-canary"               # (Required) Canary name used by the CanaryName CloudWatch dimension.
 #         rum:                                     # (Optional) CloudWatch RUM app monitor identity, used by type rum.
 #           app_monitor_name: "my-web-app"         # (Required) App monitor name used by the application_name CloudWatch dimension.
+#         api_gateway:                             # (Optional) API Gateway REST API stage identity for metric-query/request-based SLOs.
+#           api_name: "orders-api"                 # (Required) REST API name used by the ApiName CloudWatch dimension.
+#           stage: "prod"                          # (Required) Stage used by the Stage CloudWatch dimension.
+#         ec2:                                     # (Optional) EC2 instance identity for metric-query SLOs.
+#           instance_id: "i-0123456789abcdef0"     # (Required) Instance ID used by the InstanceId CloudWatch dimension.
+#         load_balancer:                           # (Optional) Application Load Balancer identity for metric-query/request-based SLOs.
+#           arn_suffix: "app/public/50dc6c495c0c"  # (Required) Final ARN portion used by the LoadBalancer CloudWatch dimension.
 #         metric_type: AVAILABILITY                # (Optional for synthetics/rum) synthetics: AVAILABILITY (SuccessPercent), LATENCY (Duration); default AVAILABILITY. rum: LATENCY, LCP, CLS, FID, INP, JS_ERRORS, HTTP_ERRORS, APDEX; default LATENCY.
 #         threshold: 100                           # (Optional for synthetics/rum) SLI threshold. Defaults: synthetics AVAILABILITY 100; rum LATENCY 3000, LCP 2500, CLS 0.1, FID 100, INP 200. Required for synthetics LATENCY, JS_ERRORS, HTTP_ERRORS; ignored for APDEX.
 #         comparison: LessThan                     # (Optional) Comparison operator. Default: LessThan.
@@ -121,7 +128,7 @@ variable "alarm_targets" {
 #     slos:
 #       latency:
 #         type: metric-query                        # (Required) Valid values: golden-signal, golden-signal-op, operational, metric-query, request-based, synthetics, rum.
-#         preset: lat_apigateway_service_requests   # (Required for metric-query) Direct metric preset.
+#         preset: lat_apigateway_service_requests   # (Required for metric-query/request-based) metric-query: any monitor preset. request-based: eb_5xx_availability, apigateway_5xx_availability, apigateway_4xx_availability, alb_target_5xx_availability, alb_elb_5xx_availability.
 #         comparison: LessThan                      # (Optional) SLI comparison operator. Default: LessThan.
 #         threshold: 500                            # (Required for metric-query) SLI threshold.
 #       availability:

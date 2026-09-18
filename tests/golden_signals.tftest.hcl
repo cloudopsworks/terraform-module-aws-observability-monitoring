@@ -340,3 +340,51 @@ run "service_slo_burn_rate_alarm_defaults" {
     error_message = "Typed service SLO alarms must default the burn-rate look-back window to 60 minutes."
   }
 }
+
+run "aws_infrastructure_request_based_slos" {
+  command = plan
+
+  variables {
+    org = {
+      organization_name = "Cloud Ops Works"
+      organization_unit = "Platform"
+      environment_type  = "production"
+      environment_name  = "prod"
+    }
+    services     = yamldecode(file("tests/fixtures/aws-request-based-slo-inputs.yaml")).services
+    slo_settings = yamldecode(file("tests/fixtures/aws-request-based-slo-inputs.yaml")).slos
+  }
+
+  assert {
+    condition     = length(awscc_applicationsignals_service_level_objective.slo) == 5
+    error_message = "Expected API Gateway, ALB and EC2 SLOs from both configuration models."
+  }
+
+  assert {
+    condition     = awscc_applicationsignals_service_level_objective.slo["orders-api-availability"].request_based_sli.request_based_sli_metric.monitored_request_count_metric.bad_count_metric[0].metric_stat.metric.namespace == "AWS/ApiGateway"
+    error_message = "API Gateway request-based SLOs must read the AWS/ApiGateway namespace."
+  }
+
+  assert {
+    condition = one([
+      for dimension in awscc_applicationsignals_service_level_objective.slo["orders-api-legacy-availability"].request_based_sli.request_based_sli_metric.total_request_count_metric[0].metric_stat.metric.dimensions : dimension.value
+      if dimension.name == "Stage"
+    ]) == "prod"
+    error_message = "Legacy API Gateway request-based SLOs must render the Stage dimension."
+  }
+
+  assert {
+    condition     = awscc_applicationsignals_service_level_objective.slo["public-alb-availability"].request_based_sli.request_based_sli_metric.monitored_request_count_metric.bad_count_metric[0].metric_stat.metric.metric_name == "HTTPCode_Target_5XX_Count"
+    error_message = "ALB target 5xx request-based SLOs must use HTTPCode_Target_5XX_Count."
+  }
+
+  assert {
+    condition     = length(output.slo_names["ec2:i-0123456789abcdef0"]) == 1 && length(output.slo_names["apigateway:orders-api/prod"]) == 2 && length(output.slo_names["alb:app/public-alb/50dc6c495c0c9188"]) == 2
+    error_message = "Legacy and typed SLOs must share the infrastructure canonical service keys."
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_metric_alarm.slo) == 1
+    error_message = "Only the API Gateway availability SLO enables a burn-rate alarm."
+  }
+}

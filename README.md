@@ -91,10 +91,13 @@ The v2 model adds a typed service inventory:
   SuccessPercent and Duration SLOs.
 - `services.<key>.resource_type = rum_app_monitor` for CloudWatch RUM app monitor
   page-load, Web Vitals, error-count, and APDEX SLOs.
-- `services.<key>.resource_type = api_gateway` for API Gateway REST API stage metrics.
-- `services.<key>.resource_type = ec2_instance` for EC2 status, traffic, and CPU metrics.
+- `services.<key>.resource_type = api_gateway` for API Gateway REST API stage metrics,
+  metric-query latency SLOs, and 4xx/5xx request-based availability SLOs.
+- `services.<key>.resource_type = ec2_instance` for EC2 status, traffic, and CPU metrics
+  plus metric-query status-check and CPU SLOs.
 - `services.<key>.resource_type = application_load_balancer` for ALB latency,
-  errors, traffic, and rejected-connection saturation metrics.
+  errors, traffic, and rejected-connection saturation metrics, metric-query latency
+  SLOs, and target/ELB 5xx request-based availability SLOs.
 - `services.<key>.monitors` configures alarms/dashboard widgets from built-in
   presets or inline custom metrics.
 - `services.<key>.slos` configures service-scoped Golden Signal, Golden Signal
@@ -102,7 +105,8 @@ The v2 model adds a typed service inventory:
   synthetics, or rum SLOs.
 - Every SLO type is also available through the legacy `slos.service_level_objectives`
   list, where the identity block (`eks`, `lambda`, `elasticbeanstalk`, `synthetics`,
-  `rum`) or an explicit `source_service_key` selects the owning service.
+  `rum`, `api_gateway`, `ec2`, `load_balancer`) or an explicit `source_service_key`
+  selects the owning service.
 - `alarm.enabled: true` within a legacy service-level indicator or typed service SLO
   creates an Application Signals burn-rate alarm using the standard alarm name and
   action targets.
@@ -313,6 +317,17 @@ inputs = {
 | `eb_4xx_count` | Elastic Beanstalk | HTTP 4xx |
 | `eb_requests_total` | Elastic Beanstalk | Traffic widget/request-count source |
 | `eb_instances_severe` | Elastic Beanstalk | Instance health |
+
+Request-based SLO presets (`type: request-based`) pair a bad-request metric with a
+total-request metric from the service identity block:
+
+| Preset | Resource | Bad / total metric |
+|--------|----------|--------------------|
+| `eb_5xx_availability` | Elastic Beanstalk | `ApplicationRequests5xx` / `ApplicationRequestsTotal` |
+| `apigateway_5xx_availability` | API Gateway | `5XXError` / `Count` |
+| `apigateway_4xx_availability` | API Gateway | `4XXError` / `Count` |
+| `alb_target_5xx_availability` | Application Load Balancer | `HTTPCode_Target_5XX_Count` / `RequestCount` |
+| `alb_elb_5xx_availability` | Application Load Balancer | `HTTPCode_ELB_5XX_Count` / `RequestCount` |
 
 ## Quick Start
 
@@ -583,8 +598,11 @@ dashboards:
 Infrastructure services use direct CloudWatch metrics. API Gateway and Application
 Load Balancer provide native request-latency metrics; EC2 does not, so EC2 latency
 must come from Application Signals or a custom application metric. Use `metric-query`
-SLOs with these direct presets rather than the Application Signals `golden-signal`
-SLO type.
+SLOs with the direct presets for latency/saturation, and `request-based` SLOs with the
+`apigateway_*_availability` / `alb_*_availability` presets for availability, rather
+than the Application Signals `golden-signal` SLO type. EC2 has no request metrics, so
+its availability SLO is a `metric-query` on `err_ec2_status_check_failed`
+(`LessThan 1`).
 
 ```yaml
 services:
@@ -617,6 +635,14 @@ services:
         preset: lat_apigateway_service_requests
         comparison: LessThan
         threshold: 500
+      availability:
+        type: request-based
+        preset: apigateway_5xx_availability
+        goal:
+          attainment: 99.9
+        alarm:
+          enabled: true
+          priority: 1
 
   batch-worker:
     resource_type: ec2_instance
@@ -636,6 +662,17 @@ services:
       cpu:
         preset: sat_ec2_cpu_utilization
         priority: 2
+        threshold: 85
+    slos:
+      status:
+        type: metric-query
+        preset: err_ec2_status_check_failed
+        comparison: LessThan
+        threshold: 1
+      cpu:
+        type: metric-query
+        preset: sat_ec2_cpu_utilization
+        comparison: LessThan
         threshold: 85
 
   public-alb:
@@ -662,6 +699,49 @@ services:
       rejected_connections:
         preset: sat_alb_rejected_connections
         priority: 1
+    slos:
+      latency:
+        type: metric-query
+        preset: lat_alb_target_response_time
+        comparison: LessThan
+        threshold: 1
+      availability:
+        type: request-based
+        preset: alb_target_5xx_availability
+        goal:
+          attainment: 99.9
+```
+
+The same infrastructure SLOs in legacy `slos.service_level_objectives` form use the
+`api_gateway`, `ec2`, and `load_balancer` identity blocks:
+
+```yaml
+slos:
+  service_level_objectives:
+    - name: orders-api-availability
+      type: request-based
+      preset: apigateway_5xx_availability
+      service_level_indicator:
+        api_gateway:
+          api_name: orders-api
+          stage: prod
+        alarm:
+          enabled: true
+          priority: 1
+    - name: batch-worker-status
+      type: metric-query
+      preset: err_ec2_status_check_failed
+      service_level_indicator:
+        ec2:
+          instance_id: i-0123456789abcdef0
+        comparison: LessThan
+        threshold: 1
+    - name: public-alb-availability
+      type: request-based
+      preset: alb_target_5xx_availability
+      service_level_indicator:
+        load_balancer:
+          arn_suffix: app/public-alb/50dc6c495c0c9188
 ```
 
 ## v2 Elastic Beanstalk environment

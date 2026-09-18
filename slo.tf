@@ -50,9 +50,37 @@ locals {
           name        = try(slo.service_level_indicator.name, slo.service_level_indicator.rum.app_monitor_name)
           type        = try(slo.service_level_indicator.type, "Service")
         })
+      }, {}),
+      try({
+        source_service_key = try(slo.source_service_key, format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage))
+        service_level_indicator = merge(slo.service_level_indicator, {
+          name  = try(slo.service_level_indicator.name, slo.service_level_indicator.api_gateway.api_name)
+          stage = try(slo.service_level_indicator.stage, slo.service_level_indicator.api_gateway.stage)
+        })
+      }, {}),
+      try({
+        source_service_key = try(slo.source_service_key, format("ec2:%s", slo.service_level_indicator.ec2.instance_id))
+        service_level_indicator = merge(slo.service_level_indicator, {
+          name = try(slo.service_level_indicator.name, slo.service_level_indicator.ec2.instance_id)
+        })
+      }, {}),
+      try({
+        source_service_key = try(slo.source_service_key, format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix))
+        service_level_indicator = merge(slo.service_level_indicator, {
+          name = try(slo.service_level_indicator.name, slo.service_level_indicator.load_balancer.arn_suffix)
+        })
       }, {})
     )
   ]
+
+  # Request-based availability presets: bad / total request metrics keyed by the identity block that supplies the dimensions
+  request_based_sli_catalog = {
+    eb_5xx_availability         = { namespace = "AWS/ElasticBeanstalk", bad_metric = "ApplicationRequests5xx", total_metric = "ApplicationRequestsTotal", identity = "elasticbeanstalk" }
+    apigateway_5xx_availability = { namespace = "AWS/ApiGateway", bad_metric = "5XXError", total_metric = "Count", identity = "api_gateway" }
+    apigateway_4xx_availability = { namespace = "AWS/ApiGateway", bad_metric = "4XXError", total_metric = "Count", identity = "api_gateway" }
+    alb_target_5xx_availability = { namespace = "AWS/ApplicationELB", bad_metric = "HTTPCode_Target_5XX_Count", total_metric = "RequestCount", identity = "load_balancer" }
+    alb_elb_5xx_availability    = { namespace = "AWS/ApplicationELB", bad_metric = "HTTPCode_ELB_5XX_Count", total_metric = "RequestCount", identity = "load_balancer" }
+  }
 
   # CloudWatch RUM period-based SLI catalog keyed by metric_type; APDEX is request-based and built separately
   rum_sli_catalog = {
@@ -76,6 +104,9 @@ locals {
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
           try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+          try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+          try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+          try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = format("operational-%s-%s", replace(replace(operation, "*", "ALL"), "/[\\/\\$\\%\\^]/", "-"), coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY"))
@@ -122,6 +153,9 @@ locals {
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
           try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+          try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+          try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+          try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = "gs-operational-latency"
@@ -162,6 +196,9 @@ locals {
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
           try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+          try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+          try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+          try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = "gs-operational-availability"
@@ -208,6 +245,9 @@ locals {
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
           try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+          try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+          try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+          try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = "golden-latency"
@@ -264,6 +304,9 @@ locals {
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
           try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+          try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+          try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+          try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = "golden-errors"
@@ -344,6 +387,9 @@ locals {
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
           try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+          try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+          try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+          try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = "golden-traffic"
@@ -400,6 +446,9 @@ locals {
           try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
           try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
           try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+          try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+          try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+          try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
           "custom:${try(slo.name, slo.service_level_indicator.name)}"
         )
         slo_key = "golden-saturation"
@@ -475,6 +524,9 @@ locals {
         try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
         try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
         try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+        try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+        try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+        try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
         "custom:${try(slo.name, slo.service_level_indicator.name)}"
       )
       slo_key = try(slo.name, "metric-query")
@@ -534,6 +586,9 @@ locals {
         try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
         try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
         try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+        try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+        try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+        try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
         "custom:${try(slo.name, slo.service_level_indicator.name)}"
       )
       slo_key = try(slo.name, "request-based")
@@ -546,13 +601,14 @@ locals {
                 id         = "badCount1"
                 metric_stat = {
                   metric = {
-                    namespace   = "AWS/ElasticBeanstalk"
-                    metric_name = "ApplicationRequests5xx"
+                    namespace   = local.request_based_sli_catalog[slo.preset].namespace
+                    metric_name = local.request_based_sli_catalog[slo.preset].bad_metric
                     dimensions = [
-                      {
-                        name  = "EnvironmentName"
-                        value = slo.service_level_indicator.elasticbeanstalk.environment_name
-                      }
+                      for dim_name, dim_value in tomap(
+                        local.request_based_sli_catalog[slo.preset].identity == "api_gateway" ? { ApiName = slo.service_level_indicator.api_gateway.api_name, Stage = slo.service_level_indicator.api_gateway.stage } :
+                        local.request_based_sli_catalog[slo.preset].identity == "load_balancer" ? { LoadBalancer = slo.service_level_indicator.load_balancer.arn_suffix } :
+                        { EnvironmentName = slo.service_level_indicator.elasticbeanstalk.environment_name }
+                      ) : { name = dim_name, value = dim_value }
                     ]
                   }
                   period = coalesce(try(slo.service_level_indicator.period_seconds, null), 60)
@@ -568,13 +624,14 @@ locals {
               id         = "totalCount1"
               metric_stat = {
                 metric = {
-                  namespace   = "AWS/ElasticBeanstalk"
-                  metric_name = "ApplicationRequestsTotal"
+                  namespace   = local.request_based_sli_catalog[slo.preset].namespace
+                  metric_name = local.request_based_sli_catalog[slo.preset].total_metric
                   dimensions = [
-                    {
-                      name  = "EnvironmentName"
-                      value = slo.service_level_indicator.elasticbeanstalk.environment_name
-                    }
+                    for dim_name, dim_value in tomap(
+                      local.request_based_sli_catalog[slo.preset].identity == "api_gateway" ? { ApiName = slo.service_level_indicator.api_gateway.api_name, Stage = slo.service_level_indicator.api_gateway.stage } :
+                      local.request_based_sli_catalog[slo.preset].identity == "load_balancer" ? { LoadBalancer = slo.service_level_indicator.load_balancer.arn_suffix } :
+                      { EnvironmentName = slo.service_level_indicator.elasticbeanstalk.environment_name }
+                    ) : { name = dim_name, value = dim_value }
                   ]
                 }
                 period = coalesce(try(slo.service_level_indicator.period_seconds, null), 60)
@@ -598,7 +655,7 @@ locals {
       alarm = try(slo.service_level_indicator.alarm, {})
       tags  = try(slo.tags, {})
     }
-    if try(slo.enabled, true) && slo.type == "request-based" && try(slo.preset, null) == "eb_5xx_availability"
+    if try(slo.enabled, true) && slo.type == "request-based" && contains(keys(local.request_based_sli_catalog), try(slo.preset, ""))
   ]
 
   # CloudWatch Synthetics canary SLOs - SuccessPercent (AVAILABILITY) or Duration (LATENCY)
@@ -612,6 +669,9 @@ locals {
         try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
         try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
         try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+        try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+        try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+        try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
         "custom:${try(slo.name, slo.service_level_indicator.name)}"
       )
       slo_key = format("synthetics-%s", lower(coalesce(try(slo.service_level_indicator.metric_type, null), "AVAILABILITY")))
@@ -669,6 +729,9 @@ locals {
         try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
         try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
         try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+        try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+        try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+        try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
         "custom:${try(slo.name, slo.service_level_indicator.name)}"
       )
       slo_key = format("rum-%s", replace(lower(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")), "_", "-"))
@@ -726,6 +789,9 @@ locals {
         try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
         try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
         try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+        try(slo.service_level_indicator.api_gateway, null) != null ? format("apigateway:%s/%s", slo.service_level_indicator.api_gateway.api_name, slo.service_level_indicator.api_gateway.stage) :
+        try(slo.service_level_indicator.ec2, null) != null ? format("ec2:%s", slo.service_level_indicator.ec2.instance_id) :
+        try(slo.service_level_indicator.load_balancer, null) != null ? format("alb:%s", slo.service_level_indicator.load_balancer.arn_suffix) :
         "custom:${try(slo.name, slo.service_level_indicator.name)}"
       )
       slo_key = "rum-apdex"

@@ -70,6 +70,13 @@ slos: {} # (Optional) SLO settings passed to the Terraform slo_settings input. D
 #           canary_name: checkout-canary # (Required) Canary name used by the CanaryName CloudWatch dimension.
 #         rum: # (Optional) CloudWatch RUM app monitor identity for rum SLOs.
 #           app_monitor_name: checkout-web # (Required) App monitor name used by the application_name CloudWatch dimension.
+#         api_gateway: # (Optional) API Gateway REST API stage identity for metric-query/request-based SLOs.
+#           api_name: orders-api # (Required) REST API name used by the ApiName CloudWatch dimension.
+#           stage: prod # (Required) Stage used by the Stage CloudWatch dimension.
+#         ec2: # (Optional) EC2 instance identity for metric-query SLOs.
+#           instance_id: i-0123456789abcdef0 # (Required) Instance ID used by the InstanceId CloudWatch dimension.
+#         load_balancer: # (Optional) Application Load Balancer identity for metric-query/request-based SLOs.
+#           arn_suffix: app/public-alb/50dc6c495c0c9188 # (Required) Final ARN portion used by the LoadBalancer CloudWatch dimension.
 #         comparison: LessThan # (Optional) SLI comparison operator. Default: LessThan; replaces deprecated comparisson.
 #         comparisson: LessThan # (Optional) Deprecated compatibility alias for comparison.
 #         threshold: 1 # (Required for metric-query/operational; Optional for synthetics/rum) Threshold value. Defaults: synthetics AVAILABILITY 100; rum LATENCY 3000, LCP 2500, CLS 0.1, FID 100, INP 200. Required for synthetics LATENCY and rum JS_ERRORS/HTTP_ERRORS; ignored for APDEX.
@@ -91,7 +98,7 @@ slos: {} # (Optional) SLO settings passed to the Terraform slo_settings input. D
 #           datapoints_to_alarm: 1 # (Optional) Consecutive breaching datapoints required. Default: 1.
 #           period: 60 # (Optional) CloudWatch alarm evaluation period in seconds. Default: 60.
 #           look_back_window_minutes: 60 # (Optional) Burn-rate calculation window in minutes. Default: 60.
-#       preset: eb_latency_p99 # (Required for metric-query/request-based) Monitor preset used as SLO metric source.
+#       preset: eb_latency_p99 # (Required for metric-query/request-based) metric-query: any monitor preset. request-based: eb_5xx_availability, apigateway_5xx_availability, apigateway_4xx_availability, alb_target_5xx_availability, alb_elb_5xx_availability.
 #       goal: # (Optional) SLO goal settings.
 #         attainment: 99.9 # (Optional) Attainment percentage. Default: 99.9.
 #         duration: 7 # (Optional) Rolling interval duration. Default: 7.
@@ -179,7 +186,7 @@ services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and das
 #       golden: # (Required) Stable SLO key.
 #         enabled: true # (Optional) Whether this SLO is managed. Default: true.
 #         type: golden-signal # (Required) Valid values: golden-signal, golden-signal-op, operational, metric-query, request-based, synthetics, rum.
-#         preset: eb_5xx_availability # (Optional) Required for metric-query/request-based SLOs.
+#         preset: eb_5xx_availability # (Optional) Required for metric-query/request-based SLOs. request-based valid values: eb_5xx_availability, apigateway_5xx_availability, apigateway_4xx_availability, alb_target_5xx_availability, alb_elb_5xx_availability.
 #         name_override: checkout # (Optional) SLO name override. Default: service or service-slo key.
 #         description: Checkout golden signals # (Optional) SLO description. Default: generated.
 #         comparison: LessThan # (Optional) Comparison operator. Default: LessThan.
