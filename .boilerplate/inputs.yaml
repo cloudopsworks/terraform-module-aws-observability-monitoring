@@ -78,6 +78,7 @@ slos: {} # (Optional) SLO settings passed to the Terraform slo_settings input. D
 #         operations: [] # (Optional for operational) Application Signals operation names. Default: [].
 #         latency_threshold: 300 # (Required for golden-signal/golden-signal-op) Latency threshold in milliseconds.
 #         availability_threshold: 99.9 # (Required for golden-signal-op) Application Signals availability threshold in percent, evaluated across all operations.
+#         latency_statistic: p99 # (Optional for golden-signal-op) Statistic for the LATENCY SLO. Valid values: Average, p50, p90, p95, p99, etc. Default: p99.
 #         errors_threshold: 5 # (Required for golden-signal) Error threshold.
 #         traffic_threshold: 1000 # (Required for golden-signal) Request-count threshold.
 #         saturation_threshold: 85 # (Required for golden-signal) Saturation threshold.
@@ -189,6 +190,7 @@ services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and das
 #         operations: [] # (Optional) Operational SLO operation names. Default: [].
 #         latency_threshold: 300 # (Optional) Golden Signals latency threshold; required for golden-signal/golden-signal-op.
 #         availability_threshold: 99.9 # (Optional) Application Signals availability threshold in percent; required for golden-signal-op.
+#         latency_statistic: p99 # (Optional) golden-signal-op LATENCY SLO statistic. Valid values: Average, p50, p90, p95, p99, etc. Default: p99.
 #         errors_threshold: 5 # (Optional) Golden Signals errors threshold.
 #         traffic_threshold: 1000 # (Optional) Golden Signals traffic threshold.
 #         saturation_threshold: 85 # (Optional) Golden Signals saturation threshold.

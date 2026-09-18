@@ -137,7 +137,7 @@ locals {
             metric_type    = "LATENCY"
             operation_name = null
             period_seconds = coalesce(try(slo.service_level_indicator.period_seconds, null), 60)
-            statistic      = coalesce(try(slo.service_level_indicator.statistic, null), "p99")
+            statistic      = coalesce(try(slo.service_level_indicator.latency_statistic, null), "p99")
           }
         }
         goal = {

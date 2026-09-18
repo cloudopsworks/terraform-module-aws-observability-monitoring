@@ -157,6 +157,7 @@ usage: |-
   #       service_level_indicator:
   #         eks: { cluster_name: eks-prod-use1, namespace: checkout-prod, name: checkout-helm }
   #         latency_threshold: 300 # (Required) milliseconds
+  #         latency_statistic: p99 # (Optional) Default: p99
   #         availability_threshold: 99.9 # (Required) percent
   #     - name: checkout-canary
   #       type: synthetics
@@ -360,6 +361,7 @@ examples: |-
             namespace: checkout-prod
             name: checkout-helm
           latency_threshold: 300
+          latency_statistic: p99
           availability_threshold: 99.9
           alarm:
             enabled: true
@@ -408,10 +410,10 @@ examples: |-
   ## Golden Signal operational SLOs (`golden-signal-op`)
 
   `golden-signal-op` creates a pair of Application Signals SLOs per service — one
-  `LATENCY` (p99 by default, `LessThan latency_threshold` ms) and one `AVAILABILITY`
-  (`GreaterThan availability_threshold` percent) — both evaluated across **all**
-  operations (`operation_name` omitted). Use `operational` with an `operations` list when
-  you need per-operation SLOs instead.
+  `LATENCY` (`latency_statistic`, p99 by default, `LessThan latency_threshold` ms) and one
+  `AVAILABILITY` (`GreaterThan availability_threshold` percent) — both evaluated across
+  **all** operations (`operation_name` omitted). Use `operational` with an `operations`
+  list when you need per-operation SLOs instead.
 
   ```yaml
   services:
@@ -426,6 +428,7 @@ examples: |-
         golden_op:
           type: golden-signal-op
           latency_threshold: 300
+          latency_statistic: p95
           availability_threshold: 99.9
           alarm:
             enabled: true

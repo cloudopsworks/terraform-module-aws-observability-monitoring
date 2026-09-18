@@ -36,6 +36,7 @@ locals {
           operations             = try(slo.operations, [])
           latency_threshold      = try(slo.latency_threshold, null)
           availability_threshold = try(slo.availability_threshold, null)
+          latency_statistic      = try(slo.latency_statistic, null)
           errors_threshold       = try(slo.errors_threshold, null)
           traffic_threshold      = try(slo.traffic_threshold, null)
           saturation_threshold   = try(slo.saturation_threshold, null)

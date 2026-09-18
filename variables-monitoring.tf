@@ -29,6 +29,7 @@
 #         comparison: LessThan                     # (Optional) Comparison operator. Default: LessThan.
 #         latency_threshold: 100                   # (Required for golden-signal/golden-signal-op) Latency threshold in milliseconds.
 #         availability_threshold: 99.9             # (Required for golden-signal-op) Application Signals availability threshold in percent, evaluated across all operations.
+#         latency_statistic: p99                   # (Optional for golden-signal-op) Statistic for the LATENCY SLO. Valid values: Average, p50, p90, p95, p99, etc. Default: p99.
 #         errors_threshold: 5                      # (Required for golden-signal) Error threshold.
 #         saturation_threshold: 80                 # (Required for golden-signal) Saturation threshold.
 #         saturation_metric: CPU                   # (Optional) Saturation metric. Valid values: CPU, MEMORY. Default: CPU.
@@ -132,7 +133,8 @@ variable "alarm_targets" {
 #         period_seconds: 300                       # (Optional) SLI period in seconds. Default: 300.
 #       golden_op:
 #         type: golden-signal-op                    # (Required) Application Signals LATENCY + AVAILABILITY SLO pair across all operations.
-#         latency_threshold: 300                    # (Required) Latency threshold in milliseconds (p99 by default).
+#         latency_threshold: 300                    # (Required) Latency threshold in milliseconds.
+#         latency_statistic: p99                    # (Optional) Statistic for the LATENCY SLO. Valid values: Average, p50, p90, p95, p99, etc. Default: p99.
 #         availability_threshold: 99.9              # (Required) Availability threshold in percent.
 #       web_vitals:
 #         type: rum                                 # (Required) RUM app monitor SLO; requires resource.rum.
@@ -272,6 +274,7 @@ variable "services" {
       operations             = optional(list(string), [])
       latency_threshold      = optional(number)
       availability_threshold = optional(number)
+      latency_statistic      = optional(string)
       errors_threshold       = optional(number)
       traffic_threshold      = optional(number)
       saturation_threshold   = optional(number)
