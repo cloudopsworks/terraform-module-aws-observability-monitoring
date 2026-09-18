@@ -12,7 +12,7 @@
 #   service_level_objectives:
 #     - name: "Golden Signal SLO"
 #       description: "Service Level Objective 1"   # (Optional) Description for the SLO. Default: generated from the SLO name.
-#       type: golden-signal                        # (Required) SLO type. Valid values: golden-signal, operational, metric-query, request-based, synthetics, rum.
+#       type: golden-signal                        # (Required) SLO type. Valid values: golden-signal, golden-signal-op, operational, metric-query, request-based, synthetics, rum.
 #       service_level_indicator:
 #         eks:                                     # (Optional) EKS service identity.
 #           cluster_name: "my-cluster"             # (Required) EKS cluster name.
@@ -27,7 +27,8 @@
 #         metric_type: AVAILABILITY                # (Optional for synthetics/rum) synthetics: AVAILABILITY (SuccessPercent), LATENCY (Duration); default AVAILABILITY. rum: LATENCY, LCP, CLS, FID, INP, JS_ERRORS, HTTP_ERRORS, APDEX; default LATENCY.
 #         threshold: 100                           # (Optional for synthetics/rum) SLI threshold. Defaults: synthetics AVAILABILITY 100; rum LATENCY 3000, LCP 2500, CLS 0.1, FID 100, INP 200. Required for synthetics LATENCY, JS_ERRORS, HTTP_ERRORS; ignored for APDEX.
 #         comparison: LessThan                     # (Optional) Comparison operator. Default: LessThan.
-#         latency_threshold: 100                   # (Required for golden-signal) Latency threshold in milliseconds.
+#         latency_threshold: 100                   # (Required for golden-signal/golden-signal-op) Latency threshold in milliseconds.
+#         availability_threshold: 99.9             # (Required for golden-signal-op) Application Signals availability threshold in percent, evaluated across all operations.
 #         errors_threshold: 5                      # (Required for golden-signal) Error threshold.
 #         saturation_threshold: 80                 # (Required for golden-signal) Saturation threshold.
 #         saturation_metric: CPU                   # (Optional) Saturation metric. Valid values: CPU, MEMORY. Default: CPU.
@@ -118,7 +119,7 @@ variable "alarm_targets" {
 #         threshold: 500                            # (Optional) Alarm threshold. Default: preset-specific.
 #     slos:
 #       latency:
-#         type: metric-query                        # (Required) Valid values: golden-signal, operational, metric-query, request-based, synthetics, rum.
+#         type: metric-query                        # (Required) Valid values: golden-signal, golden-signal-op, operational, metric-query, request-based, synthetics, rum.
 #         preset: lat_apigateway_service_requests   # (Required for metric-query) Direct metric preset.
 #         comparison: LessThan                      # (Optional) SLI comparison operator. Default: LessThan.
 #         threshold: 500                            # (Required for metric-query) SLI threshold.
@@ -129,6 +130,10 @@ variable "alarm_targets" {
 #         threshold: 100                            # (Optional) SLI threshold. Default: 100 for AVAILABILITY; required for LATENCY (milliseconds).
 #         statistic: Average                        # (Optional) SLI statistic. Default: Average.
 #         period_seconds: 300                       # (Optional) SLI period in seconds. Default: 300.
+#       golden_op:
+#         type: golden-signal-op                    # (Required) Application Signals LATENCY + AVAILABILITY SLO pair across all operations.
+#         latency_threshold: 300                    # (Required) Latency threshold in milliseconds (p99 by default).
+#         availability_threshold: 99.9              # (Required) Availability threshold in percent.
 #       web_vitals:
 #         type: rum                                 # (Required) RUM app monitor SLO; requires resource.rum.
 #         metric_type: LCP                          # (Optional) Valid values: LATENCY, LCP, CLS, FID, INP, JS_ERRORS, HTTP_ERRORS, APDEX. Default: LATENCY.
@@ -253,23 +258,24 @@ variable "services" {
     })), {})
 
     slos = optional(map(object({
-      enabled              = optional(bool, true)
-      type                 = string
-      preset               = optional(string)
-      name_override        = optional(string)
-      description          = optional(string)
-      comparison           = optional(string)
-      comparisson          = optional(string)
-      threshold            = optional(number)
-      metric_type          = optional(string)
-      statistic            = optional(string)
-      period_seconds       = optional(number)
-      operations           = optional(list(string), [])
-      latency_threshold    = optional(number)
-      errors_threshold     = optional(number)
-      traffic_threshold    = optional(number)
-      saturation_threshold = optional(number)
-      saturation_metric    = optional(string)
+      enabled                = optional(bool, true)
+      type                   = string
+      preset                 = optional(string)
+      name_override          = optional(string)
+      description            = optional(string)
+      comparison             = optional(string)
+      comparisson            = optional(string)
+      threshold              = optional(number)
+      metric_type            = optional(string)
+      statistic              = optional(string)
+      period_seconds         = optional(number)
+      operations             = optional(list(string), [])
+      latency_threshold      = optional(number)
+      availability_threshold = optional(number)
+      errors_threshold       = optional(number)
+      traffic_threshold      = optional(number)
+      saturation_threshold   = optional(number)
+      saturation_metric      = optional(string)
       alarm = optional(object({
         enabled                  = optional(bool, false)
         priority                 = optional(number, 1)

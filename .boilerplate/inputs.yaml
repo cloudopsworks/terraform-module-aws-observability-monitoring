@@ -54,7 +54,7 @@ slos: {} # (Optional) SLO settings passed to the Terraform slo_settings input. D
 #   service_level_objectives: # (Optional) List of SLOs. Default: [].
 #     - name: checkout # (Required) SLO name suffix.
 #       description: Checkout Golden Signals SLO # (Optional) SLO description. Default: generated from name.
-#       type: golden-signal # (Required) SLO type. Valid values: golden-signal, operational, metric-query, request-based, synthetics, rum.
+#       type: golden-signal # (Required) SLO type. Valid values: golden-signal, golden-signal-op, operational, metric-query, request-based, synthetics, rum.
 #       enabled: true # (Optional) Whether to create the SLO. Default: true.
 #       service_level_indicator: # (Required) SLI configuration.
 #         eks: # (Optional) EKS Application Signals identity.
@@ -76,7 +76,8 @@ slos: {} # (Optional) SLO settings passed to the Terraform slo_settings input. D
 #         metric_type: LATENCY # (Optional for operational/synthetics/rum) operational: LATENCY, AVAILABILITY (default LATENCY). synthetics: AVAILABILITY (SuccessPercent), LATENCY (Duration) (default AVAILABILITY). rum: LATENCY, LCP, CLS, FID, INP, JS_ERRORS, HTTP_ERRORS, APDEX (default LATENCY).
 #         statistic: p99 # (Optional) SLI statistic. Default: p99 for operational, Average for metric SLOs.
 #         operations: [] # (Optional for operational) Application Signals operation names. Default: [].
-#         latency_threshold: 300 # (Required for golden-signal) Latency threshold in milliseconds.
+#         latency_threshold: 300 # (Required for golden-signal/golden-signal-op) Latency threshold in milliseconds.
+#         availability_threshold: 99.9 # (Required for golden-signal-op) Application Signals availability threshold in percent, evaluated across all operations.
 #         errors_threshold: 5 # (Required for golden-signal) Error threshold.
 #         traffic_threshold: 1000 # (Required for golden-signal) Request-count threshold.
 #         saturation_threshold: 85 # (Required for golden-signal) Saturation threshold.
@@ -176,7 +177,7 @@ services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and das
 #     slos: # (Optional) Service-scoped SLOs. Default: {}.
 #       golden: # (Required) Stable SLO key.
 #         enabled: true # (Optional) Whether this SLO is managed. Default: true.
-#         type: golden-signal # (Required) Valid values: golden-signal, operational, metric-query, request-based, synthetics, rum.
+#         type: golden-signal # (Required) Valid values: golden-signal, golden-signal-op, operational, metric-query, request-based, synthetics, rum.
 #         preset: eb_5xx_availability # (Optional) Required for metric-query/request-based SLOs.
 #         name_override: checkout # (Optional) SLO name override. Default: service or service-slo key.
 #         description: Checkout golden signals # (Optional) SLO description. Default: generated.
@@ -186,7 +187,8 @@ services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and das
 #         statistic: p99 # (Optional) SLI statistic. Default: p99/Average depending on SLO type.
 #         period_seconds: 300 # (Optional) SLI period in seconds. Default: 300.
 #         operations: [] # (Optional) Operational SLO operation names. Default: [].
-#         latency_threshold: 300 # (Optional) Golden Signals latency threshold.
+#         latency_threshold: 300 # (Optional) Golden Signals latency threshold; required for golden-signal/golden-signal-op.
+#         availability_threshold: 99.9 # (Optional) Application Signals availability threshold in percent; required for golden-signal-op.
 #         errors_threshold: 5 # (Optional) Golden Signals errors threshold.
 #         traffic_threshold: 1000 # (Optional) Golden Signals traffic threshold.
 #         saturation_threshold: 85 # (Optional) Golden Signals saturation threshold.

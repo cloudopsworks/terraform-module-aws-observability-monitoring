@@ -74,8 +74,12 @@ introduction: |-
     errors, traffic, and rejected-connection saturation metrics.
   - `services.<key>.monitors` configures alarms/dashboard widgets from built-in
     presets or inline custom metrics.
-  - `services.<key>.slos` configures service-scoped Golden Signal, operational,
-    metric-query, request-based, synthetics, or rum SLOs.
+  - `services.<key>.slos` configures service-scoped Golden Signal, Golden Signal
+    operational (`golden-signal-op`), operational, metric-query, request-based,
+    synthetics, or rum SLOs.
+  - Every SLO type is also available through the legacy `slos.service_level_objectives`
+    list, where the identity block (`eks`, `lambda`, `elasticbeanstalk`, `synthetics`,
+    `rum`) or an explicit `source_service_key` selects the owning service.
   - `alarm.enabled: true` within a legacy service-level indicator or typed service SLO
     creates an Application Signals burn-rate alarm using the standard alarm name and
     action targets.
@@ -133,8 +137,12 @@ usage: |-
   # slos:
   #   service_level_objectives:
   #     - name: checkout-availability
-  #       type: operational
+  #       type: operational # (Required) Valid values: golden-signal, golden-signal-op, operational, metric-query, request-based, synthetics, rum.
   #       service_level_indicator:
+  #         eks: # (Optional) Identity block: eks, lambda, elasticbeanstalk, synthetics or rum; omit and set source_service_key for a generic service.
+  #           cluster_name: eks-prod-use1
+  #           namespace: checkout-prod
+  #           name: checkout-helm
   #         metric_type: AVAILABILITY
   #         operations: ["GET /health"]
   #         alarm: # (Optional) Burn-rate alarm settings. Default: disabled.
@@ -144,6 +152,24 @@ usage: |-
   #           datapoints_to_alarm: 1
   #           period: 60
   #           look_back_window_minutes: 60
+  #     - name: checkout-golden-op
+  #       type: golden-signal-op # LATENCY + AVAILABILITY Application Signals SLO pair across all operations.
+  #       service_level_indicator:
+  #         eks: { cluster_name: eks-prod-use1, namespace: checkout-prod, name: checkout-helm }
+  #         latency_threshold: 300 # (Required) milliseconds
+  #         availability_threshold: 99.9 # (Required) percent
+  #     - name: checkout-canary
+  #       type: synthetics
+  #       service_level_indicator:
+  #         synthetics:
+  #           canary_name: checkout-canary
+  #         metric_type: AVAILABILITY # (Optional) AVAILABILITY (SuccessPercent) or LATENCY (Duration). Default: AVAILABILITY.
+  #     - name: checkout-web-lcp
+  #       type: rum
+  #       service_level_indicator:
+  #         rum:
+  #           app_monitor_name: checkout-web
+  #         metric_type: LCP # (Optional) LATENCY, LCP, CLS, FID, INP, JS_ERRORS, HTTP_ERRORS, APDEX. Default: LATENCY.
 
   services: {} # (Optional) Typed v2 service definitions for alarms, SLOs, and dashboards. Default: {}.
   # services:
@@ -326,11 +352,84 @@ examples: |-
           attainment: 99.9
           duration: 5
           duration_unit: DAY
+      - name: checkout-golden-op
+        type: golden-signal-op
+        service_level_indicator:
+          eks:
+            cluster_name: eks-nexus-main-prod-003-usea1
+            namespace: checkout-prod
+            name: checkout-helm
+          latency_threshold: 300
+          availability_threshold: 99.9
+          alarm:
+            enabled: true
+            priority: 1
+      - name: checkout-canary
+        type: synthetics
+        service_level_indicator:
+          synthetics:
+            canary_name: checkout-canary
+          metric_type: AVAILABILITY
+          alarm:
+            enabled: true
+            priority: 1
+      - name: checkout-canary-duration
+        type: synthetics
+        service_level_indicator:
+          synthetics:
+            canary_name: checkout-canary
+          metric_type: LATENCY
+          threshold: 3000
+          statistic: p95
+      - name: checkout-web-lcp
+        type: rum
+        service_level_indicator:
+          rum:
+            app_monitor_name: checkout-web
+          metric_type: LCP
+      - name: checkout-web-apdex
+        type: rum
+        service_level_indicator:
+          rum:
+            app_monitor_name: checkout-web
+          metric_type: APDEX
+          alarm:
+            enabled: true
+            priority: 2
+        goal:
+          attainment: 99.0
 
   dashboards:
     enabled: true
     create_fleet: true
     create_per_service: false
+  ```
+
+  ## Golden Signal operational SLOs (`golden-signal-op`)
+
+  `golden-signal-op` creates a pair of Application Signals SLOs per service — one
+  `LATENCY` (p99 by default, `LessThan latency_threshold` ms) and one `AVAILABILITY`
+  (`GreaterThan availability_threshold` percent) — both evaluated across **all**
+  operations (`operation_name` omitted). Use `operational` with an `operations` list when
+  you need per-operation SLOs instead.
+
+  ```yaml
+  services:
+    checkout:
+      resource_type: eks_service
+      resource:
+        eks:
+          cluster_name: eks-prod-use1
+          namespace: checkout-prod
+          service_name: checkout-helm
+      slos:
+        golden_op:
+          type: golden-signal-op
+          latency_threshold: 300
+          availability_threshold: 99.9
+          alarm:
+            enabled: true
+            priority: 1
   ```
 
   ## v2 EKS service with dashboards and Golden Signals SLOs

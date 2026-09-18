@@ -110,6 +110,92 @@ locals {
     ] if try(slo.enabled, true) && slo.type == "operational"
   ])
 
+  # Operational Golden Signals, covers all operations "*" and all metric types (LATENCY, AVAILABILITY) for a given SLO
+  slo_operational_golden = flatten([
+    for slo in local.slo_set_env : [
+      { # LATENCY SLO for all operations
+        name        = format("%s LATENCY", try(slo.name, slo.service_level_indicator.name))
+        description = coalesce(try(slo.description, null), "[Golden Signals] [Latency] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
+        source_service_key = try(slo.source_service_key,
+          try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
+          try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
+          try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+          try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+          try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+          "custom:${try(slo.name, slo.service_level_indicator.name)}"
+        )
+        slo_key = "gs-operational-latency"
+        sli = {
+          comparison_operator = "LessThan"
+          metric_threshold    = try(slo.service_level_indicator.latency_threshold, null)
+          sli_metric = {
+            key_attributes = {
+              Environment = slo.service_level_indicator.environment
+              Name        = slo.service_level_indicator.name
+              Type        = slo.service_level_indicator.type
+            }
+            metric_type    = "LATENCY"
+            operation_name = null
+            period_seconds = coalesce(try(slo.service_level_indicator.period_seconds, null), 60)
+            statistic      = coalesce(try(slo.service_level_indicator.statistic, null), "p99")
+          }
+        }
+        goal = {
+          attainment_goal = coalesce(try(slo.goal.attainment, null), 99.9)
+          interval = {
+            rolling_interval = {
+              duration      = coalesce(try(slo.goal.duration, null), 7)
+              duration_unit = coalesce(try(slo.goal.duration_unit, null), "DAY")
+            }
+          }
+          warning_threshold = coalesce(try(slo.goal.warning_threshold, null), 80)
+        }
+        alarm = try(slo.service_level_indicator.alarm, {})
+        tags  = try(slo.tags, {})
+      },
+      { # AVAILABILITY SLO for all operations
+        name        = format("%s AVAILABILITY", try(slo.name, slo.service_level_indicator.name))
+        description = coalesce(try(slo.description, null), "[Golden Signals] [Availability] SLO for ${try(slo.name, slo.service_level_indicator.name)}")
+        source_service_key = try(slo.source_service_key,
+          try(slo.service_level_indicator.eks, null) != null ? format("eks:%s/%s/%s", slo.service_level_indicator.eks.cluster_name, slo.service_level_indicator.eks.namespace, slo.service_level_indicator.eks.name) :
+          try(slo.service_level_indicator.lambda, null) != null ? format("lambda:%s", slo.service_level_indicator.lambda.function_name) :
+          try(slo.service_level_indicator.elasticbeanstalk, null) != null ? format("elasticbeanstalk:%s/%s", slo.service_level_indicator.elasticbeanstalk.application_name, slo.service_level_indicator.elasticbeanstalk.environment_name) :
+          try(slo.service_level_indicator.synthetics, null) != null ? format("synthetics:%s", slo.service_level_indicator.synthetics.canary_name) :
+          try(slo.service_level_indicator.rum, null) != null ? format("rum:%s", slo.service_level_indicator.rum.app_monitor_name) :
+          "custom:${try(slo.name, slo.service_level_indicator.name)}"
+        )
+        slo_key = "gs-operational-availability"
+        sli = {
+          comparison_operator = "GreaterThan"
+          metric_threshold    = try(slo.service_level_indicator.availability_threshold, null)
+          sli_metric = {
+            key_attributes = {
+              Environment = slo.service_level_indicator.environment
+              Name        = slo.service_level_indicator.name
+              Type        = slo.service_level_indicator.type
+            }
+            metric_type    = "AVAILABILITY"
+            operation_name = null
+            period_seconds = coalesce(try(slo.service_level_indicator.period_seconds, null), 60)
+            statistic      = null
+          }
+        }
+        goal = {
+          attainment_goal = coalesce(try(slo.goal.attainment, null), 99.9)
+          interval = {
+            rolling_interval = {
+              duration      = coalesce(try(slo.goal.duration, null), 7)
+              duration_unit = coalesce(try(slo.goal.duration_unit, null), "DAY")
+            }
+          }
+          warning_threshold = coalesce(try(slo.goal.warning_threshold, null), 80)
+        }
+        alarm = try(slo.service_level_indicator.alarm, {})
+        tags  = try(slo.tags, {})
+      }
+    ] if try(slo.enabled, true) && slo.type == "golden-signal-op"
+  ])
+
   # Golden Signals SLOs - (Latency, Traffic, Errors, Saturation)
   slo_golden_signals = flatten([
     for slo in local.slo_set_env : [
@@ -712,7 +798,7 @@ locals {
     if try(slo.enabled, true) && slo.type == "rum" && upper(coalesce(try(slo.service_level_indicator.metric_type, null), "LATENCY")) == "APDEX"
   ]
 
-  slo_all = concat(local.slo_operational, local.slo_golden_signals, local.slo_metric_query, local.slo_request_based, local.slo_synthetics, local.slo_rum_metric, local.slo_rum_apdex)
+  slo_all = concat(local.slo_operational, local.slo_golden_signals, local.slo_metric_query, local.slo_request_based, local.slo_synthetics, local.slo_rum_metric, local.slo_rum_apdex, local.slo_operational_golden)
 }
 
 resource "awscc_applicationsignals_service_level_objective" "slo" {
